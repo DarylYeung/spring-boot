@@ -16,23 +16,8 @@
 
 package org.springframework.boot;
 
-import java.lang.reflect.Constructor;
-import java.security.AccessControlException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.CachedIntrospectionResults;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -62,26 +47,16 @@ import org.springframework.core.GenericTypeResolver;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.ConfigurableConversionService;
-import org.springframework.core.env.CommandLinePropertySource;
-import org.springframework.core.env.CompositePropertySource;
-import org.springframework.core.env.ConfigurableEnvironment;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.MapPropertySource;
-import org.springframework.core.env.MutablePropertySources;
-import org.springframework.core.env.PropertySource;
-import org.springframework.core.env.SimpleCommandLinePropertySource;
-import org.springframework.core.env.StandardEnvironment;
+import org.springframework.core.env.*;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.SpringFactoriesLoader;
-import org.springframework.util.Assert;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.ObjectUtils;
-import org.springframework.util.ReflectionUtils;
-import org.springframework.util.StopWatch;
-import org.springframework.util.StringUtils;
+import org.springframework.util.*;
 import org.springframework.web.context.support.StandardServletEnvironment;
+
+import java.lang.reflect.Constructor;
+import java.security.AccessControlException;
+import java.util.*;
 
 /**
  * Class that can be used to bootstrap and launch a Spring application from a Java main
@@ -273,7 +248,7 @@ public class SpringApplication {
 		this.primarySources = new LinkedHashSet<>(Arrays.asList(primarySources));
 		//	设置应用类型，根据反射机制判断是否能加载对应的标志类;有三种类型（Servlet、Reactive、None）
 		this.webApplicationType = WebApplicationType.deduceFromClasspath();
-		//	设置系统初始化器ApplicationContextInitializer
+		//	设置系统初始化器ApplicationContextInitializer,执行是在run().prepareContext()容器前置处理方法中
 		setInitializers((Collection) getSpringFactoriesInstances(ApplicationContextInitializer.class));
 		//	设置应用监听器ApplicationListener
 		setListeners((Collection) getSpringFactoriesInstances(ApplicationListener.class));
@@ -366,15 +341,19 @@ public class SpringApplication {
 		// Create and configure the environment
 		//	根据webApplicationType类型构建对应的Environment对象;Servlet类型构建StandardServletEnvironment对象
 		ConfigurableEnvironment environment = getOrCreateEnvironment();
+		//	环境配置
 		configureEnvironment(environment, applicationArguments.getSourceArgs());
 		ConfigurationPropertySources.attach(environment);
 		//	发布[环境已准备]事件，第二次发布事件
 		listeners.environmentPrepared(environment);
+		//	将spring.main的属性设置到当前Application中
 		bindToSpringApplication(environment);
+		//	判断当前Environment是否符合要求的Environment
 		if (!this.isCustomEnvironment) {
 			environment = new EnvironmentConverter(getClassLoader()).convertEnvironmentIfNecessary(environment,
 					deduceEnvironmentClass());
 		}
+		//	将ConfigurationPropertySource配置到指定的environment
 		ConfigurationPropertySources.attach(environment);
 		return environment;
 	}
@@ -517,11 +496,14 @@ public class SpringApplication {
 	 * @see #configurePropertySources(ConfigurableEnvironment, String[])
 	 */
 	protected void configureEnvironment(ConfigurableEnvironment environment, String[] args) {
+		//	配置转换器，主要用于配置属性转换
 		if (this.addConversionService) {
 			ConversionService conversionService = ApplicationConversionService.getSharedInstance();
 			environment.setConversionService((ConfigurableConversionService) conversionService);
 		}
+		//	配置属性源
 		configurePropertySources(environment, args);
+		//	获取当前激活的profile
 		configureProfiles(environment, args);
 	}
 
@@ -537,6 +519,7 @@ public class SpringApplication {
 		if (this.defaultProperties != null && !this.defaultProperties.isEmpty()) {
 			sources.addLast(new MapPropertySource("defaultProperties", this.defaultProperties));
 		}
+		//	判断启动的命令参数是否为空；若非空，则添加
 		if (this.addCommandLineProperties && args.length > 0) {
 			String name = CommandLinePropertySource.COMMAND_LINE_PROPERTY_SOURCE_NAME;
 			if (sources.contains(name)) {
@@ -565,6 +548,7 @@ public class SpringApplication {
 	protected void configureProfiles(ConfigurableEnvironment environment, String[] args) {
 		Set<String> profiles = new LinkedHashSet<>(this.additionalProfiles);
 		profiles.addAll(Arrays.asList(environment.getActiveProfiles()));
+		//	设置激活的profile
 		environment.setActiveProfiles(StringUtils.toStringArray(profiles));
 	}
 
@@ -614,6 +598,7 @@ public class SpringApplication {
 			try {
 				switch (this.webApplicationType) {
 				case SERVLET:
+					//	创建AnnotationConfigServletWebServerApplicationContext容器
 					contextClass = Class.forName(DEFAULT_SERVLET_WEB_CONTEXT_CLASS);
 					break;
 				case REACTIVE:
