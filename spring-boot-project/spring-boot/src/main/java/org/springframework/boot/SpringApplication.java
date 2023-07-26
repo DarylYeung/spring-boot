@@ -310,18 +310,18 @@ public class SpringApplication {
 		configureHeadlessProperty();
 		//	获取spring程序运行监听器，监听spring运行状态
 		SpringApplicationRunListeners listeners = getRunListeners(args);
-		//	发布[程序启动]事件，第一次发布事件
+		//	第一次发布事件,发布[start]事件
 		listeners.starting(bootstrapContext, this.mainApplicationClass);
 		try {
 			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
-			//	准备配置环境;加载配置文件、加载对应profile、解析@Value等占位符
+			//	准备配置环境;加载配置文件、加载对应profile、解析@Value等占位符;发布第二次事件
 			ConfigurableEnvironment environment = prepareEnvironment(listeners, bootstrapContext, applicationArguments);
 			//	打印banner
 			Banner printedBanner = printBanner(environment);
 			//	创建容器;创建DefaultListableBeanFactory、注册BeanFactoryPostProcessor的实现类ConfigurationClassPostProcessor
 			context = createApplicationContext();
 			context.setApplicationStartup(this.applicationStartup);
-			//	容器前置处理;加载primarySources启动类,将其注册为bean(bean的注册是指创建BeanDefinition,并放到BeanDefinitionMap中,并没有完成实例化)
+			//	容器前置处理;加载primarySources启动类,将其注册为bean(bean的注册是指创建BeanDefinition,并放到BeanDefinitionMap中,并没有完成实例化);发布第三次和第四次事件
 			prepareContext(bootstrapContext, context, environment, listeners, applicationArguments, printedBanner);
 			//	刷新容器
 			refreshContext(context);
@@ -346,7 +346,7 @@ public class SpringApplication {
 		try {
 			if (context.isRunning()) {
 				Duration timeTakenToReady = Duration.ofNanos(System.nanoTime() - startTime);
-				//	TODO 发布事件
+				//	第六次发布事件,发布[ready]事件
 				listeners.ready(context, timeTakenToReady);
 			}
 		}

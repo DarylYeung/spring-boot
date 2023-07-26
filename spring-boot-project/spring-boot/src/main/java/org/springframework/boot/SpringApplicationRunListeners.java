@@ -81,7 +81,7 @@ class SpringApplicationRunListeners {
 		doWithListeners("spring.boot.application.started", (listener) -> listener.started(context, timeTaken));
 	}
 
-	//	TODO ready
+	//	在ready()执行最后时被调用
 	void ready(ConfigurableApplicationContext context, Duration timeTaken) {
 		doWithListeners("spring.boot.application.ready", (listener) -> listener.ready(context, timeTaken));
 	}
