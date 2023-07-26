@@ -286,14 +286,14 @@ public class SpringApplication {
 
 	private Class<?> deduceMainApplicationClass() {
 		return StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
-			.walk(this::findMainClass)
-			.orElse(null);
+				.walk(this::findMainClass)
+				.orElse(null);
 	}
 
 	private Optional<Class<?>> findMainClass(Stream<StackFrame> stack) {
 		return stack.filter((frame) -> Objects.equals(frame.getMethodName(), "main"))
-			.findFirst()
-			.map(StackWalker.StackFrame::getDeclaringClass);
+				.findFirst()
+				.map(StackWalker.StackFrame::getDeclaringClass);
 	}
 
 	/**
@@ -306,7 +306,6 @@ public class SpringApplication {
 		long startTime = System.nanoTime();
 		DefaultBootstrapContext bootstrapContext = createBootstrapContext();
 		ConfigurableApplicationContext context = null;
-		Collection<SpringBootExceptionReporter> exceptionReporters = new ArrayList<>();
 		//	设置headless属性，在没有显示器和键盘时系统依旧能够启动
 		configureHeadlessProperty();
 		//	获取spring程序运行监听器，监听spring运行状态
@@ -316,11 +315,8 @@ public class SpringApplication {
 		try {
 			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
 			//	准备配置环境;加载配置文件、加载对应profile、解析@Value等占位符
-			ConfigurableEnvironment environment = prepareEnvironment(listeners, applicationArguments);
-			//	设置忽略bean;跳过BeanInfo类扫描，防止重复加载bean
-			configureIgnoreBeanInfo(environment);
-			//	打印banner
 			ConfigurableEnvironment environment = prepareEnvironment(listeners, bootstrapContext, applicationArguments);
+			//	打印banner
 			Banner printedBanner = printBanner(environment);
 			//	创建容器;创建DefaultListableBeanFactory、注册BeanFactoryPostProcessor的实现类ConfigurationClassPostProcessor
 			context = createApplicationContext();
@@ -398,7 +394,7 @@ public class SpringApplication {
 
 	private Class<? extends ConfigurableEnvironment> deduceEnvironmentClass() {
 		Class<? extends ConfigurableEnvironment> environmentType = this.applicationContextFactory
-			.getEnvironmentType(this.webApplicationType);
+				.getEnvironmentType(this.webApplicationType);
 		if (environmentType == null && this.applicationContextFactory != ApplicationContextFactory.DEFAULT) {
 			environmentType = ApplicationContextFactory.DEFAULT.getEnvironmentType(this.webApplicationType);
 		}
@@ -554,7 +550,7 @@ public class SpringApplication {
 				PropertySource<?> source = sources.get(name);
 				CompositePropertySource composite = new CompositePropertySource(name);
 				composite
-					.addPropertySource(new SimpleCommandLinePropertySource("springApplicationCommandLineArgs", args));
+						.addPropertySource(new SimpleCommandLinePropertySource("springApplicationCommandLineArgs", args));
 				composite.addPropertySource(source);
 				sources.replace(name, composite);
 			}
@@ -620,7 +616,7 @@ public class SpringApplication {
 	protected void postProcessApplicationContext(ConfigurableApplicationContext context) {
 		if (this.beanNameGenerator != null) {
 			context.getBeanFactory()
-				.registerSingleton(AnnotationConfigUtils.CONFIGURATION_BEAN_NAME_GENERATOR, this.beanNameGenerator);
+					.registerSingleton(AnnotationConfigUtils.CONFIGURATION_BEAN_NAME_GENERATOR, this.beanNameGenerator);
 		}
 		if (this.resourceLoader != null) {
 			if (context instanceof GenericApplicationContext genericApplicationContext) {
@@ -1522,7 +1518,7 @@ public class SpringApplication {
 		private static class RunListener implements SpringApplicationRunListener, Running {
 
 			private final List<ConfigurableApplicationContext> contexts = Collections
-				.synchronizedList(new ArrayList<>());
+					.synchronizedList(new ArrayList<>());
 
 			@Override
 			public void contextLoaded(ConfigurableApplicationContext context) {
@@ -1532,8 +1528,8 @@ public class SpringApplication {
 			@Override
 			public ConfigurableApplicationContext getApplicationContext() {
 				List<ConfigurableApplicationContext> rootContexts = this.contexts.stream()
-					.filter((context) -> context.getParent() == null)
-					.toList();
+						.filter((context) -> context.getParent() == null)
+						.toList();
 				Assert.state(!rootContexts.isEmpty(), "No root application context located");
 				Assert.state(rootContexts.size() == 1, "No unique root application context located");
 				return rootContexts.get(0);
