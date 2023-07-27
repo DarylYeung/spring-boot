@@ -48,16 +48,37 @@ public enum WebApplicationType {
 	 */
 	REACTIVE;
 
+	/**
+	 * jakarta.servlet.Servlet是JavaEE的一个接口
+	 * 在JavaEE8及之前的版本中,Servlet的包名为javax.servlet
+	 * 在JavaEE9及之后的版本中,Servlet的包名为jakarta.servlet
+	 *
+	 * org.springframework.web.context.ConfigurableWebApplicationContext是SpringWeb中的一个接口
+	 *
+	 */
 	private static final String[] SERVLET_INDICATOR_CLASSES = { "jakarta.servlet.Servlet",
 			"org.springframework.web.context.ConfigurableWebApplicationContext" };
 
+	/**
+	 * webmvc是一个MVC框架,它的核心是一个servlet,即org.springframework.web.servlet.DispatcherServlet
+	 */
 	private static final String WEBMVC_INDICATOR_CLASS = "org.springframework.web.servlet.DispatcherServlet";
 
+	/**
+	 * webflux是一个响应式编程框架,它的核心是一个servlet,即org.springframework.web.reactive.DispatcherHandler
+	 */
 	private static final String WEBFLUX_INDICATOR_CLASS = "org.springframework.web.reactive.DispatcherHandler";
 
+	/**
+	 * jersey是一个RESTful框架,它的核心是一个servlet,即org.glassfish.jersey.servlet.ServletContainer
+	 */
 	private static final String JERSEY_INDICATOR_CLASS = "org.glassfish.jersey.servlet.ServletContainer";
 
 	static WebApplicationType deduceFromClasspath() {
+		//	根据应用程序的类路径和依赖库来推断应用程序的类型
+		//	当依赖spring-boot-starter-web时,为SERVLET
+		//	当依赖spring-boot-starter-webflux时,为REACTIVE
+		//	当spring-boot-starter-web和spring-boot-starter-webflux都存在时,为SERVLET
 		if (ClassUtils.isPresent(WEBFLUX_INDICATOR_CLASS, null) && !ClassUtils.isPresent(WEBMVC_INDICATOR_CLASS, null)
 				&& !ClassUtils.isPresent(JERSEY_INDICATOR_CLASS, null)) {
 			return WebApplicationType.REACTIVE;

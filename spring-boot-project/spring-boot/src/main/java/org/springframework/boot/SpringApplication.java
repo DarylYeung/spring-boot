@@ -477,16 +477,20 @@ public class SpringApplication {
 	}
 
 	private SpringApplicationRunListeners getRunListeners(String[] args) {
+		//	创建一个用于解析方法参数的ArgumentResolver
 		ArgumentResolver argumentResolver = ArgumentResolver.of(SpringApplication.class, this);
 		argumentResolver = argumentResolver.and(String[].class, args);
+		//	获取springApplicationRunListener监听器
 		List<SpringApplicationRunListener> listeners = getSpringFactoriesInstances(SpringApplicationRunListener.class,
 				argumentResolver);
+		//	用于获取额外的应用程序钩子,是一个ThreadLocal变量
 		SpringApplicationHook hook = applicationHook.get();
 		SpringApplicationRunListener hookListener = (hook != null) ? hook.getRunListener(this) : null;
 		if (hookListener != null) {
 			listeners = new ArrayList<>(listeners);
 			listeners.add(hookListener);
 		}
+		//	创建一个SpringApplicationRunListeners对象,完成监听器的配置
 		return new SpringApplicationRunListeners(logger, listeners, this.applicationStartup);
 	}
 
