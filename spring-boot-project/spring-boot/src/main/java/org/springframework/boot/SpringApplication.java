@@ -285,6 +285,7 @@ public class SpringApplication {
 		this.primarySources = new LinkedHashSet<>(Arrays.asList(primarySources));
 		//	设置应用类型，根据反射机制判断是否能加载对应的标志类;有三种类型（Servlet、Reactive、None）
 		this.webApplicationType = WebApplicationType.deduceFromClasspath();
+		//	加载Spring.factories文件中的ApplicationContextInitializer、ApplicationListener、BootstrapRegistryInitializer
 		//	设置系统初始化器ApplicationContextInitializer,执行是在run().prepareContext()容器前置处理方法中
 		this.bootstrapRegistryInitializers = new ArrayList<>(
 				getSpringFactoriesInstances(BootstrapRegistryInitializer.class));
@@ -335,7 +336,8 @@ public class SpringApplication {
 			//	创建容器;创建DefaultListableBeanFactory、注册BeanFactoryPostProcessor的实现类ConfigurationClassPostProcessor
 			context = createApplicationContext();
 			context.setApplicationStartup(this.applicationStartup);
-			//	容器前置处理;加载primarySources启动类,将其注册为bean(bean的注册是指创建BeanDefinition,并放到BeanDefinitionMap中,并没有完成实例化);发布第三次和第四次事件
+			//	容器前置处理;加载primarySources启动类,将其注册为bean(bean的注册是指创建BeanDefinition,并放到BeanDefinitionMap中,并没有完成实例化);
+			//	发布第三次和第四次事件
 			prepareContext(bootstrapContext, context, environment, listeners, applicationArguments, printedBanner);
 			//	刷新容器
 			refreshContext(context);
@@ -383,7 +385,9 @@ public class SpringApplication {
 	private ConfigurableEnvironment prepareEnvironment(SpringApplicationRunListeners listeners,
 			DefaultBootstrapContext bootstrapContext, ApplicationArguments applicationArguments) {
 		// Create and configure the environment
-		//	根据webApplicationType类型构建对应的Environment对象;Servlet类型构建StandardServletEnvironment对象
+		//	根据webApplicationType类型构建对应的Environment对象;
+		//	Servlet类型构建ApplicationServletEnvironment对象
+		//	Reactive类型构建ApplicationReactiveWebEnvironment对象
 		ConfigurableEnvironment environment = getOrCreateEnvironment();
 		//	环境配置
 		configureEnvironment(environment, applicationArguments.getSourceArgs());
