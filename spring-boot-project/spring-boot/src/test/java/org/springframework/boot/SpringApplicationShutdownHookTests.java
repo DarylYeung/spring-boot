@@ -35,9 +35,9 @@ import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Tests for {@link SpringApplicationShutdownHook}.
@@ -51,6 +51,7 @@ class SpringApplicationShutdownHookTests {
 	@Test
 	void shutdownHookIsNotAddedUntilContextIsRegistered() {
 		TestSpringApplicationShutdownHook shutdownHook = new TestSpringApplicationShutdownHook();
+		shutdownHook.enableShutdownHookAddition();
 		assertThat(shutdownHook.isRuntimeShutdownHookAdded()).isFalse();
 		ConfigurableApplicationContext context = new GenericApplicationContext();
 		shutdownHook.registerApplicationContext(context);
@@ -60,7 +61,20 @@ class SpringApplicationShutdownHookTests {
 	@Test
 	void shutdownHookIsNotAddedUntilHandlerIsRegistered() {
 		TestSpringApplicationShutdownHook shutdownHook = new TestSpringApplicationShutdownHook();
+		shutdownHook.enableShutdownHookAddition();
 		assertThat(shutdownHook.isRuntimeShutdownHookAdded()).isFalse();
+		shutdownHook.getHandlers().add(() -> {
+		});
+		assertThat(shutdownHook.isRuntimeShutdownHookAdded()).isTrue();
+	}
+
+	@Test
+	void shutdownHookIsNotAddedUntilAdditionIsEnabled() {
+		TestSpringApplicationShutdownHook shutdownHook = new TestSpringApplicationShutdownHook();
+		shutdownHook.getHandlers().add(() -> {
+		});
+		assertThat(shutdownHook.isRuntimeShutdownHookAdded()).isFalse();
+		shutdownHook.enableShutdownHookAddition();
 		shutdownHook.getHandlers().add(() -> {
 		});
 		assertThat(shutdownHook.isRuntimeShutdownHookAdded()).isTrue();
@@ -172,8 +186,7 @@ class SpringApplicationShutdownHookTests {
 		ConfigurableApplicationContext context = new GenericApplicationContext();
 		shutdownHook.registerApplicationContext(context);
 		context.refresh();
-		assertThatThrownBy(() -> shutdownHook.deregisterFailedApplicationContext(context))
-			.isInstanceOf(IllegalStateException.class);
+		assertThatIllegalStateException().isThrownBy(() -> shutdownHook.deregisterFailedApplicationContext(context));
 		assertThat(shutdownHook.isApplicationContextRegistered(context)).isTrue();
 	}
 
@@ -183,7 +196,7 @@ class SpringApplicationShutdownHookTests {
 		GenericApplicationContext context = new GenericApplicationContext();
 		shutdownHook.registerApplicationContext(context);
 		context.registerBean(FailingBean.class);
-		assertThatThrownBy(context::refresh).isInstanceOf(BeanCreationException.class);
+		assertThatExceptionOfType(BeanCreationException.class).isThrownBy(context::refresh);
 		assertThat(shutdownHook.isApplicationContextRegistered(context)).isTrue();
 		shutdownHook.deregisterFailedApplicationContext(context);
 		assertThat(shutdownHook.isApplicationContextRegistered(context)).isFalse();

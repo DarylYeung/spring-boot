@@ -22,7 +22,7 @@ import co.elastic.clients.json.SimpleJsonpMapper;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.json.jsonb.JsonbJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
-import co.elastic.clients.transport.TransportOptions;
+import co.elastic.clients.transport.rest_client.RestClientOptions;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.json.bind.Jsonb;
@@ -43,6 +43,12 @@ import org.springframework.context.annotation.Import;
  * @author Andy Wilkinson
  */
 class ElasticsearchClientConfigurations {
+
+	@Import({ JacksonJsonpMapperConfiguration.class, JsonbJsonpMapperConfiguration.class,
+			SimpleJsonpMapperConfiguration.class })
+	static class JsonpMapperConfiguration {
+
+	}
 
 	@ConditionalOnMissingBean(JsonpMapper.class)
 	@ConditionalOnClass(ObjectMapper.class)
@@ -79,16 +85,13 @@ class ElasticsearchClientConfigurations {
 
 	}
 
-	@Import({ JacksonJsonpMapperConfiguration.class, JsonbJsonpMapperConfiguration.class,
-			SimpleJsonpMapperConfiguration.class })
-	@ConditionalOnBean(RestClient.class)
 	@ConditionalOnMissingBean(ElasticsearchTransport.class)
 	static class ElasticsearchTransportConfiguration {
 
 		@Bean
 		RestClientTransport restClientTransport(RestClient restClient, JsonpMapper jsonMapper,
-				ObjectProvider<TransportOptions> transportOptions) {
-			return new RestClientTransport(restClient, jsonMapper, transportOptions.getIfAvailable());
+				ObjectProvider<RestClientOptions> restClientOptions) {
+			return new RestClientTransport(restClient, jsonMapper, restClientOptions.getIfAvailable());
 		}
 
 	}

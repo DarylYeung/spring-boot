@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
+import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 import org.apache.maven.artifact.versioning.VersionRange;
 
 import org.springframework.boot.build.bom.bomr.version.DependencyVersion;
@@ -34,6 +35,8 @@ public class Library {
 
 	private final String name;
 
+	private final String calendarName;
+
 	private final LibraryVersion version;
 
 	private final List<Group> groups;
@@ -42,26 +45,37 @@ public class Library {
 
 	private final List<ProhibitedVersion> prohibitedVersions;
 
+	private final boolean considerSnapshots;
+
 	/**
 	 * Create a new {@code Library} with the given {@code name}, {@code version}, and
 	 * {@code groups}.
 	 * @param name name of the library
+	 * @param calendarName name of the library as it appears in the Spring Calendar. May
+	 * be {@code null} in which case the {@code name} is used.
 	 * @param version version of the library
 	 * @param groups groups in the library
 	 * @param prohibitedVersions version of the library that are prohibited
+	 * @param considerSnapshots whether to consider snapshots
 	 */
-	public Library(String name, LibraryVersion version, List<Group> groups,
-			List<ProhibitedVersion> prohibitedVersions) {
+	public Library(String name, String calendarName, LibraryVersion version, List<Group> groups,
+			List<ProhibitedVersion> prohibitedVersions, boolean considerSnapshots) {
 		this.name = name;
+		this.calendarName = (calendarName != null) ? calendarName : name;
 		this.version = version;
 		this.groups = groups;
 		this.versionProperty = "Spring Boot".equals(name) ? null
 				: name.toLowerCase(Locale.ENGLISH).replace(' ', '-') + ".version";
 		this.prohibitedVersions = prohibitedVersions;
+		this.considerSnapshots = considerSnapshots;
 	}
 
 	public String getName() {
 		return this.name;
+	}
+
+	public String getCalendarName() {
+		return this.calendarName;
 	}
 
 	public LibraryVersion getVersion() {
@@ -78,6 +92,10 @@ public class Library {
 
 	public List<ProhibitedVersion> getProhibitedVersions() {
 		return this.prohibitedVersions;
+	}
+
+	public boolean isConsiderSnapshots() {
+		return this.considerSnapshots;
 	}
 
 	/**
@@ -122,6 +140,16 @@ public class Library {
 
 		public String getReason() {
 			return this.reason;
+		}
+
+		public boolean isProhibited(String candidate) {
+			boolean result = false;
+			result = result
+					|| (this.range != null && this.range.containsVersion(new DefaultArtifactVersion(candidate)));
+			result = result || this.startsWith.stream().anyMatch(candidate::startsWith);
+			result = result || this.endsWith.stream().anyMatch(candidate::endsWith);
+			result = result || this.contains.stream().anyMatch(candidate::contains);
+			return result;
 		}
 
 	}

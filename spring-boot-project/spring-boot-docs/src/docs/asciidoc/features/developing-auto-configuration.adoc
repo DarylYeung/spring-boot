@@ -136,7 +136,7 @@ This condition will not match for applications that are run with an embedded web
 
 [[features.developing-auto-configuration.condition-annotations.spel-conditions]]
 ==== SpEL Expression Conditions
-The `@ConditionalOnExpression` annotation lets configuration be included based on the result of a {spring-framework-docs}/core.html#expressions[SpEL expression].
+The `@ConditionalOnExpression` annotation lets configuration be included based on the result of a {spring-framework-docs}/core/expressions.html[SpEL expression].
 
 NOTE: Referencing a bean in the expression will cause that bean to be initialized very early in context refresh processing.
 As a result, the bean won't be eligible for post-processing (such as configuration properties binding) and its state may be incomplete.
@@ -148,6 +148,8 @@ As a result, the bean won't be eligible for post-processing (such as configurati
 An auto-configuration can be affected by many factors: user configuration (`@Bean` definition and `Environment` customization), condition evaluation (presence of a particular library), and others.
 Concretely, each test should create a well defined `ApplicationContext` that represents a combination of those customizations.
 `ApplicationContextRunner` provides a great way to achieve that.
+
+WARNING: `ApplicationContextRunner` doesn't work when running the tests in a native image.
 
 `ApplicationContextRunner` is usually defined as a field of the test class to gather the base, common configuration.
 The following example makes sure that `MyServiceAutoConfiguration` is always invoked:
@@ -272,7 +274,7 @@ When building with Maven, it is recommended to add the following dependency in a
 	</dependency>
 ----
 
-If you have defined auto-configurations directly in your application, make sure to configure the `spring-boot-maven-plugin` to prevent the `repackage` goal from adding the dependency into the fat jar:
+If you have defined auto-configurations directly in your application, make sure to configure the `spring-boot-maven-plugin` to prevent the `repackage` goal from adding the dependency into the uber jar:
 
 [source,xml,indent=0,subs="verbatim"]
 ----

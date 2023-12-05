@@ -65,6 +65,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.gradle.junit.GradleProjectBuilder;
 import org.springframework.boot.loader.tools.DefaultLaunchScript;
 import org.springframework.boot.loader.tools.JarModeLibrary;
+import org.springframework.boot.loader.tools.LoaderImplementation;
 import org.springframework.util.FileCopyUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -255,7 +256,8 @@ abstract class AbstractBootArchiveTests<T extends Jar & BootArchive> {
 		this.task.getMainClass().set("com.example.Main");
 		executeTask();
 		try (JarFile jarFile = new JarFile(this.task.getArchiveFile().get().getAsFile())) {
-			assertThat(jarFile.getEntry("org/springframework/boot/loader/LaunchedURLClassLoader.class")).isNotNull();
+			assertThat(jarFile.getEntry("org/springframework/boot/loader/launch/LaunchedClassLoader.class"))
+				.isNotNull();
 			assertThat(jarFile.getEntry("org/springframework/boot/loader/")).isNotNull();
 		}
 		// gh-16698
@@ -270,7 +272,21 @@ abstract class AbstractBootArchiveTests<T extends Jar & BootArchive> {
 	void loaderIsWrittenToTheRootOfTheJarWhenUsingThePropertiesLauncher() throws IOException {
 		this.task.getMainClass().set("com.example.Main");
 		executeTask();
-		this.task.getManifest().getAttributes().put("Main-Class", "org.springframework.boot.loader.PropertiesLauncher");
+		this.task.getManifest()
+			.getAttributes()
+			.put("Main-Class", "org.springframework.boot.loader.launch.PropertiesLauncher");
+		try (JarFile jarFile = new JarFile(this.task.getArchiveFile().get().getAsFile())) {
+			assertThat(jarFile.getEntry("org/springframework/boot/loader/launch/LaunchedClassLoader.class"))
+				.isNotNull();
+			assertThat(jarFile.getEntry("org/springframework/boot/loader/")).isNotNull();
+		}
+	}
+
+	@Test
+	void loaderIsWrittenToTheRootOfTheJarWhenUsingClassicLoader() throws IOException {
+		this.task.getMainClass().set("com.example.Main");
+		this.task.getLoaderImplementation().set(LoaderImplementation.CLASSIC);
+		executeTask();
 		try (JarFile jarFile = new JarFile(this.task.getArchiveFile().get().getAsFile())) {
 			assertThat(jarFile.getEntry("org/springframework/boot/loader/LaunchedURLClassLoader.class")).isNotNull();
 			assertThat(jarFile.getEntry("org/springframework/boot/loader/")).isNotNull();
@@ -362,7 +378,7 @@ abstract class AbstractBootArchiveTests<T extends Jar & BootArchive> {
 			assertThat(jarFile.getManifest().getMainAttributes().getValue("Main-Class"))
 				.isEqualTo("com.example.CustomLauncher");
 			assertThat(jarFile.getManifest().getMainAttributes().getValue("Start-Class")).isEqualTo("com.example.Main");
-			assertThat(jarFile.getEntry("org/springframework/boot/loader/LaunchedURLClassLoader.class")).isNull();
+			assertThat(jarFile.getEntry("org/springframework/boot/loader/launch/LaunchedClassLoader.class")).isNull();
 		}
 	}
 
@@ -488,7 +504,7 @@ abstract class AbstractBootArchiveTests<T extends Jar & BootArchive> {
 	void jarWhenLayersDisabledShouldNotContainLayersIndex() throws IOException {
 		List<String> entryNames = getEntryNames(
 				createLayeredJar((configuration) -> configuration.getEnabled().set(false)));
-		assertThat(entryNames).doesNotContain(this.indexPath + "layers.idx");
+		assertThat(entryNames).isNotEmpty().doesNotContain(this.indexPath + "layers.idx");
 	}
 
 	@Test
@@ -605,7 +621,7 @@ abstract class AbstractBootArchiveTests<T extends Jar & BootArchive> {
 	void whenArchiveIsLayeredAndIncludeLayerToolsIsFalseThenLayerToolsAreNotAddedToTheJar() throws IOException {
 		List<String> entryNames = getEntryNames(
 				createLayeredJar((configuration) -> configuration.getIncludeLayerTools().set(false)));
-		assertThat(entryNames)
+		assertThat(entryNames).isNotEmpty()
 			.doesNotContain(this.indexPath + "layers/dependencies/lib/spring-boot-jarmode-layertools.jar");
 	}
 

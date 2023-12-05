@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -101,6 +102,7 @@ import org.springframework.validation.Validator;
 import org.springframework.validation.annotation.Validated;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatException;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.entry;
@@ -721,11 +723,10 @@ class ConfigurationPropertiesTests {
 
 	@Test
 	void loadWhenHasConfigurationPropertiesValidatorShouldApplyValidator() {
-		assertThatExceptionOfType(Exception.class).isThrownBy(() -> load(WithCustomValidatorConfiguration.class))
-			.satisfies((ex) -> {
-				assertThat(ex).hasCauseInstanceOf(BindException.class);
-				assertThat(ex.getCause()).hasCauseExactlyInstanceOf(BindValidationException.class);
-			});
+		assertThatException().isThrownBy(() -> load(WithCustomValidatorConfiguration.class)).satisfies((ex) -> {
+			assertThat(ex).hasCauseInstanceOf(BindException.class);
+			assertThat(ex.getCause()).hasCauseExactlyInstanceOf(BindValidationException.class);
+		});
 	}
 
 	@Test
@@ -738,7 +739,7 @@ class ConfigurationPropertiesTests {
 
 	@Test
 	void loadWhenConfigurationPropertiesIsAlsoValidatorShouldApplyValidator() {
-		assertThatExceptionOfType(Exception.class).isThrownBy(() -> load(ValidatorProperties.class)).satisfies((ex) -> {
+		assertThatException().isThrownBy(() -> load(ValidatorProperties.class)).satisfies((ex) -> {
 			assertThat(ex).hasCauseInstanceOf(BindException.class);
 			assertThat(ex.getCause()).hasCauseExactlyInstanceOf(BindValidationException.class);
 		});
@@ -746,8 +747,7 @@ class ConfigurationPropertiesTests {
 
 	@Test
 	void loadWhenConstructorBoundConfigurationPropertiesIsAlsoValidatorShouldApplyValidator() {
-		assertThatExceptionOfType(Exception.class)
-			.isThrownBy(() -> load(ValidatorConstructorBoundPropertiesConfiguration.class))
+		assertThatException().isThrownBy(() -> load(ValidatorConstructorBoundPropertiesConfiguration.class))
 			.satisfies((ex) -> {
 				assertThat(ex).hasCauseInstanceOf(BindException.class);
 				assertThat(ex.getCause()).hasCauseExactlyInstanceOf(BindValidationException.class);
@@ -921,8 +921,7 @@ class ConfigurationPropertiesTests {
 		Map<String, Object> source = new HashMap<>();
 		source.put("test.duration", "P12D");
 		sources.addLast(new MapPropertySource("test", source));
-		assertThatExceptionOfType(Exception.class)
-			.isThrownBy(() -> load(ConstructorParameterWithFormatConfiguration.class))
+		assertThatException().isThrownBy(() -> load(ConstructorParameterWithFormatConfiguration.class))
 			.havingCause()
 			.isInstanceOf(BindException.class);
 	}
@@ -933,8 +932,7 @@ class ConfigurationPropertiesTests {
 		Map<String, Object> source = new HashMap<>();
 		source.put("test.period", "P12D");
 		sources.addLast(new MapPropertySource("test", source));
-		assertThatExceptionOfType(Exception.class)
-			.isThrownBy(() -> load(ConstructorParameterWithFormatConfiguration.class))
+		assertThatException().isThrownBy(() -> load(ConstructorParameterWithFormatConfiguration.class))
 			.havingCause()
 			.isInstanceOf(BindException.class);
 	}
@@ -950,8 +948,7 @@ class ConfigurationPropertiesTests {
 
 	@Test
 	void loadWhenBindingToConstructorParametersShouldValidate() {
-		assertThatExceptionOfType(Exception.class)
-			.isThrownBy(() -> load(ConstructorParameterValidationConfiguration.class))
+		assertThatException().isThrownBy(() -> load(ConstructorParameterValidationConfiguration.class))
 			.satisfies((ex) -> {
 				assertThat(ex).hasCauseInstanceOf(BindException.class);
 				assertThat(ex.getCause()).hasCauseExactlyInstanceOf(BindValidationException.class);
@@ -1171,6 +1168,35 @@ class ConfigurationPropertiesTests {
 		PotentiallyConstructorBoundProperties properties = this.context
 			.getBean(PotentiallyConstructorBoundProperties.class);
 		assertThat(properties.getProp()).isEqualTo("alpha");
+	}
+
+	@Test
+	void loadWhenBindingClasspathPatternToResourceArrayShouldBindMultipleValues() {
+		load(ResourceArrayPropertiesConfiguration.class,
+				"test.resources=classpath*:org/springframework/boot/context/properties/*.class");
+		ResourceArrayProperties properties = this.context.getBean(ResourceArrayProperties.class);
+		assertThat(properties.getResources()).hasSizeGreaterThan(1);
+	}
+
+	@Test
+	void loadWhenBindingClasspathPatternToResourceCollectionShouldBindMultipleValues() {
+		load(ResourceCollectionPropertiesConfiguration.class,
+				"test.resources=classpath*:org/springframework/boot/context/properties/*.class");
+		ResourceCollectionProperties properties = this.context.getBean(ResourceCollectionProperties.class);
+		assertThat(properties.getResources()).hasSizeGreaterThan(1);
+	}
+
+	@Test
+	void loadWhenBindingToConstructorParametersWithConversionToCustomListImplementation() {
+		load(ConstructorBoundCustomListPropertiesConfiguration.class, "test.values=a,b");
+		assertThat(this.context.getBean(ConstructorBoundCustomListProperties.class).getValues()).containsExactly("a",
+				"b");
+	}
+
+	@Test
+	void loadWhenBindingToJavaBeanWithConversionToCustomListImplementation() {
+		load(SetterBoundCustomListPropertiesConfiguration.class, "test.values=a,b");
+		assertThat(this.context.getBean(SetterBoundCustomListProperties.class).getValues()).containsExactly("a", "b");
 	}
 
 	private AnnotationConfigApplicationContext load(Class<?> configuration, String... inlinedProperties) {
@@ -3054,6 +3080,122 @@ class ConfigurationPropertiesTests {
 
 		void setProp(String prop) {
 			this.prop = prop;
+		}
+
+	}
+
+	@EnableConfigurationProperties(ResourceArrayProperties.class)
+	static class ResourceArrayPropertiesConfiguration {
+
+	}
+
+	@ConfigurationProperties("test")
+	static class ResourceArrayProperties {
+
+		private Resource[] resources;
+
+		Resource[] getResources() {
+			return this.resources;
+		}
+
+		void setResources(Resource[] resources) {
+			this.resources = resources;
+		}
+
+	}
+
+	@EnableConfigurationProperties(ResourceCollectionProperties.class)
+	static class ResourceCollectionPropertiesConfiguration {
+
+	}
+
+	@ConfigurationProperties("test")
+	static class ResourceCollectionProperties {
+
+		private Collection<Resource> resources;
+
+		Collection<Resource> getResources() {
+			return this.resources;
+		}
+
+		void setResources(Collection<Resource> resources) {
+			this.resources = resources;
+		}
+
+	}
+
+	@EnableConfigurationProperties(ConstructorBoundCustomListProperties.class)
+	static class ConstructorBoundCustomListPropertiesConfiguration {
+
+		@Bean
+		@ConfigurationPropertiesBinding
+		static Converter<ArrayList<?>, CustomList<?>> arrayListToCustomList() {
+			return new Converter<>() {
+
+				@Override
+				public CustomList<?> convert(ArrayList<?> source) {
+					return new CustomList<>(source);
+				}
+
+			};
+
+		}
+
+	}
+
+	@ConfigurationProperties("test")
+	static class ConstructorBoundCustomListProperties {
+
+		private final CustomList<String> values;
+
+		ConstructorBoundCustomListProperties(CustomList<String> values) {
+			this.values = values;
+		}
+
+		CustomList<String> getValues() {
+			return this.values;
+		}
+
+	}
+
+	@EnableConfigurationProperties(SetterBoundCustomListProperties.class)
+	static class SetterBoundCustomListPropertiesConfiguration {
+
+		@Bean
+		@ConfigurationPropertiesBinding
+		static Converter<ArrayList<?>, CustomList<?>> arrayListToCustomList() {
+			return new Converter<>() {
+
+				@Override
+				public CustomList<?> convert(ArrayList<?> source) {
+					return new CustomList<>(source);
+				}
+
+			};
+
+		}
+
+	}
+
+	@ConfigurationProperties("test")
+	static class SetterBoundCustomListProperties {
+
+		private CustomList<String> values;
+
+		CustomList<String> getValues() {
+			return this.values;
+		}
+
+		void setValues(CustomList<String> values) {
+			this.values = values;
+		}
+
+	}
+
+	static final class CustomList<E> extends ArrayList<E> {
+
+		CustomList(List<E> delegate) {
+			super(delegate);
 		}
 
 	}

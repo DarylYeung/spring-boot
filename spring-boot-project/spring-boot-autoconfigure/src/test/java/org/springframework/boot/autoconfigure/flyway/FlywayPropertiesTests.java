@@ -114,12 +114,14 @@ class FlywayPropertiesTests {
 				"oracleWalletLocation", "sqlServerKerberosLoginFile");
 		// Properties that are managed by specific extensions
 		ignoreProperties(properties, "oracle", "postgresql", "sqlserver");
+		// https://github.com/flyway/flyway/issues/3732
+		ignoreProperties(configuration, "environment");
 		// High level object we can't set with properties
 		ignoreProperties(configuration, "callbacks", "classLoader", "dataSource", "javaMigrations",
 				"javaMigrationClassProvider", "pluginRegister", "resourceProvider", "resolvers");
 		// Properties we don't want to expose
 		ignoreProperties(configuration, "resolversAsClassNames", "callbacksAsClassNames", "driver", "modernConfig",
-				"currentResolvedEnvironment", "reportFilename", "reportEnabled");
+				"currentResolvedEnvironment", "reportFilename", "reportEnabled", "workingDirectory");
 		// Handled by the conversion service
 		ignoreProperties(configuration, "baselineVersionAsString", "encodingAsString", "locationsAsStrings",
 				"targetAsString");

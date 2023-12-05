@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnSingleCandidate;
 import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
+import org.springframework.boot.autoconfigure.transaction.TransactionManagerCustomizationAutoConfiguration;
 import org.springframework.boot.autoconfigure.transaction.TransactionManagerCustomizers;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -46,7 +47,8 @@ import org.springframework.transaction.TransactionManager;
  * @author Kazuki Shimizu
  * @since 1.0.0
  */
-@AutoConfiguration(before = TransactionAutoConfiguration.class)
+@AutoConfiguration(before = TransactionAutoConfiguration.class,
+		after = TransactionManagerCustomizationAutoConfiguration.class)
 @ConditionalOnClass({ JdbcTemplate.class, TransactionManager.class })
 @AutoConfigureOrder(Ordered.LOWEST_PRECEDENCE)
 @EnableConfigurationProperties(DataSourceProperties.class)
@@ -61,7 +63,8 @@ public class DataSourceTransactionManagerAutoConfiguration {
 		DataSourceTransactionManager transactionManager(Environment environment, DataSource dataSource,
 				ObjectProvider<TransactionManagerCustomizers> transactionManagerCustomizers) {
 			DataSourceTransactionManager transactionManager = createTransactionManager(environment, dataSource);
-			transactionManagerCustomizers.ifAvailable((customizers) -> customizers.customize(transactionManager));
+			transactionManagerCustomizers
+				.ifAvailable((customizers) -> customizers.customize((TransactionManager) transactionManager));
 			return transactionManager;
 		}
 

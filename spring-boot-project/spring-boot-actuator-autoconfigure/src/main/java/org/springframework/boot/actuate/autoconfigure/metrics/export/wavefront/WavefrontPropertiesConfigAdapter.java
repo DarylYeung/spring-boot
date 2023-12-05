@@ -16,6 +16,7 @@
 
 package org.springframework.boot.actuate.autoconfigure.metrics.export.wavefront;
 
+import com.wavefront.sdk.common.clients.service.token.TokenService.Type;
 import io.micrometer.wavefront.WavefrontConfig;
 
 import org.springframework.boot.actuate.autoconfigure.metrics.export.properties.PushRegistryPropertiesConfigAdapter;
@@ -82,6 +83,11 @@ public class WavefrontPropertiesConfigAdapter
 	@Override
 	public boolean reportDayDistribution() {
 		return get(Export::isReportDayDistribution, WavefrontConfig.super::reportDayDistribution);
+	}
+
+	@Override
+	public Type apiTokenType() {
+		return this.properties.getWavefrontApiTokenType();
 	}
 
 }

@@ -35,6 +35,8 @@ import org.apache.catalina.connector.Connector;
 import org.apache.catalina.core.AprLifecycleListener;
 import org.apache.catalina.loader.WebappLoader;
 import org.apache.catalina.startup.Tomcat;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.coyote.AbstractProtocol;
 import org.apache.coyote.ProtocolHandler;
 import org.apache.coyote.http2.Http2Protocol;
@@ -57,10 +59,13 @@ import org.springframework.util.StringUtils;
  *
  * @author Brian Clozel
  * @author HaiTao Zhang
+ * @author Moritz Halbritter
  * @since 2.0.0
  */
 public class TomcatReactiveWebServerFactory extends AbstractReactiveWebServerFactory
 		implements ConfigurableTomcatWebServerFactory {
+
+	private static final Log logger = LogFactory.getLog(TomcatReactiveWebServerFactory.class);
 
 	private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
@@ -195,8 +200,6 @@ public class TomcatReactiveWebServerFactory extends AbstractReactiveWebServerFac
 		if (getUriEncoding() != null) {
 			connector.setURIEncoding(getUriEncoding().name());
 		}
-		// Don't bind to the socket prematurely if ApplicationContext is slow to start
-		connector.setProperty("bindOnInit", "false");
 		if (getHttp2() != null && getHttp2().isEnabled()) {
 			connector.addUpgradeProtocol(new Http2Protocol());
 		}
@@ -224,7 +227,12 @@ public class TomcatReactiveWebServerFactory extends AbstractReactiveWebServerFac
 	}
 
 	private void customizeSsl(Connector connector) {
-		new SslConnectorCustomizer(getSsl().getClientAuth(), getSslBundle()).customize(connector);
+		SslConnectorCustomizer customizer = new SslConnectorCustomizer(logger, connector, getSsl().getClientAuth());
+		customizer.customize(getSslBundle());
+		String sslBundleName = getSsl().getBundle();
+		if (StringUtils.hasText(sslBundleName)) {
+			getSslBundles().addBundleUpdateHandler(sslBundleName, customizer::update);
+		}
 	}
 
 	@Override
@@ -333,7 +341,10 @@ public class TomcatReactiveWebServerFactory extends AbstractReactiveWebServerFac
 	}
 
 	/**
-	 * Add {@link Connector}s in addition to the default connector, e.g. for SSL or AJP
+	 * Add {@link Connector}s in addition to the default connector, e.g. for SSL or AJP.
+	 * <p>
+	 * {@link #getTomcatConnectorCustomizers Connector customizers} are not applied to
+	 * connectors added this way.
 	 * @param connectors the connectors to add
 	 * @since 2.2.0
 	 */

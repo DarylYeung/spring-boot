@@ -17,14 +17,12 @@
 package smoketest.jetty;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import smoketest.jetty.util.RandomStringUtil;
+import smoketest.jetty.util.StringUtil;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -41,9 +39,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Andy Wilkinson
  * @author Florian Storz
  * @author Michael Weidmann
+ * @author Moritz Halbritter
  */
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
-@ExtendWith(OutputCaptureExtension.class)
+@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = "logging.level.org.eclipse:trace")
 class SampleJettyApplicationTests {
 
 	@Autowired
@@ -65,9 +63,8 @@ class SampleJettyApplicationTests {
 		ResponseEntity<String> entity = this.restTemplate.getForEntity("/", String.class);
 		assertThat(entity.getStatusCode()).isEqualTo(HttpStatus.OK);
 		assertThat(entity.getBody()).isEqualTo("Hello World");
-		// Jetty HttpClient decodes gzip reponses automatically
-		// Check that we received a gzip-encoded response
-		assertThat(entity.getHeaders().getFirst(HttpHeaders.CONTENT_ENCODING)).isEqualTo("gzip");
+		// Jetty HttpClient decodes gzip responses automatically and removes the
+		// Content-Encoding header. We have to assume that the response was gzipped.
 	}
 
 	@Test
@@ -78,7 +75,7 @@ class SampleJettyApplicationTests {
 
 	@Test
 	void testMaxHttpRequestHeaderSize() {
-		String headerValue = RandomStringUtil.getRandomBase64EncodedString(this.maxHttpRequestHeaderSize + 1);
+		String headerValue = StringUtil.repeat('A', this.maxHttpRequestHeaderSize + 1);
 		HttpHeaders headers = new HttpHeaders();
 		headers.add("x-max-request-header", headerValue);
 		HttpEntity<?> httpEntity = new HttpEntity<>(headers);

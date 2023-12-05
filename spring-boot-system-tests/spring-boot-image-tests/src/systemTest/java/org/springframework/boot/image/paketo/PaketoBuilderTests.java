@@ -46,6 +46,7 @@ import org.springframework.boot.image.assertions.ImageAssertions;
 import org.springframework.boot.image.junit.GradleBuildInjectionExtension;
 import org.springframework.boot.testsupport.gradle.testkit.GradleBuild;
 import org.springframework.boot.testsupport.gradle.testkit.GradleBuildExtension;
+import org.springframework.boot.testsupport.gradle.testkit.GradleVersions;
 import org.springframework.util.StringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,7 +61,7 @@ import static org.assertj.core.api.Assertions.entry;
  * @author Scott Frederick
  */
 @ExtendWith({ GradleBuildInjectionExtension.class, GradleBuildExtension.class })
-@EnabledForJreRange(max = JRE.JAVA_20)
+@EnabledForJreRange(max = JRE.JAVA_21)
 class PaketoBuilderTests {
 
 	GradleBuild gradleBuild;
@@ -72,6 +73,7 @@ class PaketoBuilderTests {
 		this.gradleBuild.scriptPropertyFrom(new File("../../gradle.properties"), "nativeBuildToolsVersion");
 		this.gradleBuild.expectDeprecationMessages("BPL_SPRING_CLOUD_BINDINGS_ENABLED.*true.*Deprecated");
 		this.gradleBuild.expectDeprecationMessages("BOM table is deprecated");
+		this.gradleBuild.gradleVersion(GradleVersions.maximumCompatible());
 	}
 
 	@Test
@@ -91,9 +93,10 @@ class PaketoBuilderTests {
 					.contains("paketo-buildpacks/ca-certificates", "paketo-buildpacks/bellsoft-liberica",
 							"paketo-buildpacks/executable-jar", "paketo-buildpacks/dist-zip",
 							"paketo-buildpacks/spring-boot");
-				metadata.processOfType("web").containsExactly("java", "org.springframework.boot.loader.JarLauncher");
+				metadata.processOfType("web")
+					.containsExactly("java", "org.springframework.boot.loader.launch.JarLauncher");
 				metadata.processOfType("executable-jar")
-					.containsExactly("java", "org.springframework.boot.loader.JarLauncher");
+					.containsExactly("java", "org.springframework.boot.loader.launch.JarLauncher");
 			});
 			assertImageHasJvmSbomLayer(imageReference, config);
 			assertImageHasDependenciesSbomLayer(imageReference, config, "executable-jar");
@@ -236,9 +239,10 @@ class PaketoBuilderTests {
 					.contains("paketo-buildpacks/ca-certificates", "paketo-buildpacks/bellsoft-liberica",
 							"paketo-buildpacks/executable-jar", "paketo-buildpacks/dist-zip",
 							"paketo-buildpacks/spring-boot");
-				metadata.processOfType("web").containsExactly("java", "org.springframework.boot.loader.WarLauncher");
+				metadata.processOfType("web")
+					.containsExactly("java", "org.springframework.boot.loader.launch.WarLauncher");
 				metadata.processOfType("executable-jar")
-					.containsExactly("java", "org.springframework.boot.loader.WarLauncher");
+					.containsExactly("java", "org.springframework.boot.loader.launch.WarLauncher");
 			});
 			assertImageHasJvmSbomLayer(imageReference, config);
 			assertImageHasDependenciesSbomLayer(imageReference, config, "executable-jar");
@@ -298,6 +302,11 @@ class PaketoBuilderTests {
 	@EnabledForJreRange(max = JRE.JAVA_17)
 	void nativeApp() throws Exception {
 		this.gradleBuild.expectDeprecationMessages("uses or overrides a deprecated API");
+		this.gradleBuild.expectDeprecationMessages("has been deprecated and marked for removal");
+		// these deprecations are transitive from the Native Build Tools Gradle plugin
+		this.gradleBuild
+			.expectDeprecationMessages("has been deprecated. This is scheduled to be removed in Gradle 9.0");
+		this.gradleBuild.expectDeprecationMessages("upgrading_version_8.html#deprecated_access_to_convention");
 		writeMainClass();
 		String imageName = "paketo-integration/" + this.gradleBuild.getProjectDir().getName();
 		ImageReference imageReference = ImageReference.of(ImageName.of(imageName));
@@ -466,11 +475,9 @@ class PaketoBuilderTests {
 		if (javaVersion.startsWith("1.")) {
 			return javaVersion.substring(2, 3);
 		}
-		else {
-			int firstDotIndex = javaVersion.indexOf(".");
-			if (firstDotIndex != -1) {
-				return javaVersion.substring(0, firstDotIndex);
-			}
+		int firstDotIndex = javaVersion.indexOf(".");
+		if (firstDotIndex != -1) {
+			return javaVersion.substring(0, firstDotIndex);
 		}
 		return javaVersion;
 	}

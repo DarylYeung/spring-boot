@@ -61,6 +61,7 @@ dependencies {
 	asciidoctorExtensions(project(path: ":spring-boot-project:spring-boot-autoconfigure"))
 	asciidoctorExtensions(project(path: ":spring-boot-project:spring-boot-devtools"))
 	asciidoctorExtensions(project(path: ":spring-boot-project:spring-boot-docker-compose"))
+	asciidoctorExtensions(project(path: ":spring-boot-project:spring-boot-testcontainers"))
 
 	autoConfiguration(project(path: ":spring-boot-project:spring-boot-autoconfigure", configuration: "autoConfigurationMetadata"))
 	autoConfiguration(project(path: ":spring-boot-project:spring-boot-actuator-autoconfigure", configuration: "autoConfigurationMetadata"))
@@ -74,6 +75,7 @@ dependencies {
 	configurationProperties(project(path: ":spring-boot-project:spring-boot-docker-compose", configuration: "configurationPropertiesMetadata"))
 	configurationProperties(project(path: ":spring-boot-project:spring-boot-devtools", configuration: "configurationPropertiesMetadata"))
 	configurationProperties(project(path: ":spring-boot-project:spring-boot-test-autoconfigure", configuration: "configurationPropertiesMetadata"))
+	configurationProperties(project(path: ":spring-boot-project:spring-boot-testcontainers", configuration: "configurationPropertiesMetadata"))
 
 	gradlePluginDocumentation(project(path: ":spring-boot-project:spring-boot-tools:spring-boot-gradle-plugin", configuration: "documentation"))
 
@@ -89,7 +91,7 @@ dependencies {
 	implementation(project(path: ":spring-boot-project:spring-boot-devtools"))
 	implementation("ch.qos.logback:logback-classic")
 	implementation("com.zaxxer:HikariCP")
-	implementation("io.micrometer:micrometer-core")
+	implementation("io.micrometer:micrometer-jakarta9")
 	implementation("io.micrometer:micrometer-tracing")
 	implementation("io.micrometer:micrometer-registry-graphite")
 	implementation("io.micrometer:micrometer-registry-jmx")
@@ -162,7 +164,11 @@ dependencies {
 	implementation("org.springframework.graphql:spring-graphql")
 	implementation("org.springframework.graphql:spring-graphql-test")
 	implementation("org.springframework.kafka:spring-kafka")
-	implementation("org.springframework.kafka:spring-kafka-test")
+	implementation("org.springframework.kafka:spring-kafka-test") {
+		exclude group: "commons-logging", module: "commons-logging"
+	}
+	implementation("org.springframework.pulsar:spring-pulsar")
+	implementation("org.springframework.pulsar:spring-pulsar-reactive")
 	implementation("org.springframework.restdocs:spring-restdocs-mockmvc")
 	implementation("org.springframework.restdocs:spring-restdocs-restassured")
 	implementation("org.springframework.restdocs:spring-restdocs-webtestclient")
@@ -284,7 +290,7 @@ task runRemoteSpringApplicationExample(type: org.springframework.boot.build.docs
 
 task runSpringApplicationExample(type: org.springframework.boot.build.docs.ApplicationRunner) {
 	classpath = configurations.springApplicationExample + sourceSets.main.output
-	mainClass = "org.springframework.boot.docs.features.springapplication.MyApplication"
+	mainClass = "org.springframework.boot.docs.features.logexample.MyApplication"
 	args = ["--server.port=0"]
 	output = file("$buildDir/example-output/spring-application.txt")
 	expectedLogging = "Started MyApplication in "
@@ -293,7 +299,7 @@ task runSpringApplicationExample(type: org.springframework.boot.build.docs.Appli
 
 task runLoggingFormatExample(type: org.springframework.boot.build.docs.ApplicationRunner) {
 	classpath = configurations.springApplicationExample + sourceSets.main.output
-	mainClass = "org.springframework.boot.docs.features.springapplication.MyApplication"
+	mainClass = "org.springframework.boot.docs.features.logexample.MyApplication"
 	args = ["--spring.main.banner-mode=off", "--server.port=0", "--spring.application.name=myapp"]
 	output = file("$buildDir/example-output/logging-format.txt")
 	expectedLogging = "Started MyApplication in "
@@ -311,9 +317,9 @@ tasks.withType(org.asciidoctor.gradle.jvm.AbstractAsciidoctorTask) {
 	}
 	doFirst {
 		def versionConstraints = dependencyVersions.versionConstraints
-		def securityVersion = versionConstraints["org.springframework.security:spring-security-core"]
-		if (securityVersion.endsWith("-SNAPSHOT")) {
-			securityVersion = securityVersion.substring(0, securityVersion.length() - "-SNAPSHOT".length())
+		def toAntoraVersion = version -> {
+			String formatted = version.split("\\.").take(2).join('.')
+			return version.endsWith("-SNAPSHOT") ? formatted + "-SNAPSHOT" : formatted
 		}
 		attributes  "hibernate-version": versionConstraints["org.hibernate.orm:hibernate-core"].split("\\.").take(2).join('.'),
 					"jetty-version": versionConstraints["org.eclipse.jetty:jetty-server"],
@@ -322,10 +328,10 @@ tasks.withType(org.asciidoctor.gradle.jvm.AbstractAsciidoctorTask) {
 					"native-build-tools-version": nativeBuildToolsVersion,
 					"spring-amqp-version": versionConstraints["org.springframework.amqp:spring-amqp"],
 					"spring-batch-version": versionConstraints["org.springframework.batch:spring-batch-core"],
+					"spring-batch-version-antora": toAntoraVersion(versionConstraints["org.springframework.batch:spring-batch-core"]),
 					"spring-boot-version": project.version,
 					"spring-data-commons-version": versionConstraints["org.springframework.data:spring-data-commons"],
 					"spring-data-couchbase-version": versionConstraints["org.springframework.data:spring-data-couchbase"],
-					"spring-data-envers-version": versionConstraints["org.springframework.data:spring-data-envers"],
 					"spring-data-jdbc-version": versionConstraints["org.springframework.data:spring-data-jdbc"],
 					"spring-data-jpa-version": versionConstraints["org.springframework.data:spring-data-jpa"],
 					"spring-data-mongodb-version": versionConstraints["org.springframework.data:spring-data-mongodb"],
@@ -333,11 +339,13 @@ tasks.withType(org.asciidoctor.gradle.jvm.AbstractAsciidoctorTask) {
 					"spring-data-r2dbc-version": versionConstraints["org.springframework.data:spring-data-r2dbc"],
 					"spring-data-rest-version": versionConstraints["org.springframework.data:spring-data-rest-core"],
 					"spring-framework-version": versionConstraints["org.springframework:spring-core"],
-					"spring-graphql-version": versionConstraints["org.springframework.graphql:spring-graphql"],
-					"spring-integration-version": versionConstraints["org.springframework.integration:spring-integration-core"],
+					"spring-framework-version-antora": toAntoraVersion(versionConstraints["org.springframework:spring-core"]),
+					"spring-graphql-version-antora": toAntoraVersion(versionConstraints["org.springframework.graphql:spring-graphql"]),
+					"spring-integration-version-antora": toAntoraVersion(versionConstraints["org.springframework.integration:spring-integration-core"]),
 					"spring-kafka-version": versionConstraints["org.springframework.kafka:spring-kafka"],
-					"spring-security-version": securityVersion,
-					"spring-authorization-server-version": versionConstraints["org.springframework.security:spring-security-oauth2-authorization-server"],
+					"spring-pulsar-version": versionConstraints["org.springframework.pulsar:spring-pulsar"],
+					"spring-security-version-antora": toAntoraVersion(versionConstraints["org.springframework.security:spring-security-core"]),
+					"spring-authorization-server-version-antora": toAntoraVersion(versionConstraints["org.springframework.security:spring-security-oauth2-authorization-server"]),
 					"spring-webservices-version": versionConstraints["org.springframework.ws:spring-ws-core"],
 					"tomcat-version": tomcatVersion.split("\\.").take(2).join('.'),
 					"remote-spring-application-output": runRemoteSpringApplicationExample.outputs.files.singleFile,

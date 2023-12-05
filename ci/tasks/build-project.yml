@@ -7,7 +7,7 @@ outputs:
 - name: git-repo
 caches:
 - path: gradle
-- path: embedmongo
+- path: maven
 params:
   BRANCH:
   CI: true

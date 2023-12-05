@@ -34,7 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.cli.command.status.ExitStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.assertj.core.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.assertArg;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -80,7 +80,7 @@ class InitCommandTests extends AbstractHttpClientMockTests {
 
 	@Test
 	void generateProject() throws Exception {
-		String fileName = UUID.randomUUID().toString() + ".zip";
+		String fileName = UUID.randomUUID() + ".zip";
 		File file = new File(fileName);
 		assertThat(file).as("file should not exist").doesNotExist();
 		MockHttpProjectGenerationRequest request = new MockHttpProjectGenerationRequest("application/zip", fileName);
@@ -175,7 +175,7 @@ class InitCommandTests extends AbstractHttpClientMockTests {
 
 	@Test
 	void generateProjectAndExtractUnsupportedArchive(@TempDir File tempDir) throws Exception {
-		String fileName = UUID.randomUUID().toString() + ".zip";
+		String fileName = UUID.randomUUID() + ".zip";
 		File file = new File(fileName);
 		assertThat(file).as("file should not exist").doesNotExist();
 		try {
@@ -192,8 +192,8 @@ class InitCommandTests extends AbstractHttpClientMockTests {
 	}
 
 	@Test
-	void generateProjectAndExtractUnknownContentType(@TempDir File tempDir) throws Exception {
-		String fileName = UUID.randomUUID().toString() + ".zip";
+	void generateProjectAndExtractUnknownContentType(@TempDir File tempDir) {
+		String fileName = UUID.randomUUID() + ".zip";
 		File file = new File(fileName);
 		assertThat(file).as("file should not exist").doesNotExist();
 		try {
@@ -204,7 +204,7 @@ class InitCommandTests extends AbstractHttpClientMockTests {
 			assertThat(file).as("file should have been saved instead").exists();
 		}
 		catch (Exception ex) {
-			fail(ex);
+			fail(null, ex);
 		}
 		finally {
 			assertThat(file.delete()).as("failed to delete test file").isTrue();

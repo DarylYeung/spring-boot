@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ public class CheckAdditionalSpringConfigurationMetadata extends SourceTask {
 
 	@SuppressWarnings("unchecked")
 	private void check(String key, Map<String, Object> json, Analysis analysis) {
-		List<Map<String, Object>> groups = (List<Map<String, Object>>) json.get(key);
+		List<Map<String, Object>> groups = (List<Map<String, Object>>) json.getOrDefault(key, Collections.emptyList());
 		List<String> names = groups.stream().map((group) -> (String) group.get("name")).toList();
 		List<String> sortedNames = sortedCopy(names);
 		for (int i = 0; i < names.size(); i++) {

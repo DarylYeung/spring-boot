@@ -19,10 +19,13 @@ package org.springframework.boot.autoconfigure.web.client;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.http.HttpMessageConverters;
 import org.springframework.boot.autoconfigure.http.HttpMessageConvertersAutoConfiguration;
+import org.springframework.boot.autoconfigure.ssl.SslAutoConfiguration;
+import org.springframework.boot.ssl.SslBundles;
 import org.springframework.boot.web.client.ClientHttpRequestFactories;
 import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
 import org.springframework.boot.web.client.RestClientCustomizer;
@@ -36,14 +39,15 @@ import org.springframework.web.client.RestClient;
 /**
  * {@link EnableAutoConfiguration Auto-configuration} for {@link RestClient}.
  * <p>
- * This will produce a {@link org.springframework.web.client.RestClient.Builder
- * RestClient.Builder} bean with the {@code prototype} scope, meaning each injection point
- * will receive a newly cloned instance of the builder.
+ * This will produce a {@link RestClient.Builder RestClient.Builder} bean with the
+ * {@code prototype} scope, meaning each injection point will receive a newly cloned
+ * instance of the builder.
  *
  * @author Arjen Poutsma
+ * @author Moritz Halbritter
  * @since 3.2.0
  */
-@AutoConfiguration(after = HttpMessageConvertersAutoConfiguration.class)
+@AutoConfiguration(after = { HttpMessageConvertersAutoConfiguration.class, SslAutoConfiguration.class })
 @ConditionalOnClass(RestClient.class)
 @Conditional(NotReactiveWebApplicationCondition.class)
 public class RestClientAutoConfiguration {
@@ -51,19 +55,33 @@ public class RestClientAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	@Order(Ordered.LOWEST_PRECEDENCE)
-	public HttpMessageConvertersRestClientCustomizer httpMessageConvertersRestClientCustomizer(
+	HttpMessageConvertersRestClientCustomizer httpMessageConvertersRestClientCustomizer(
 			ObjectProvider<HttpMessageConverters> messageConverters) {
 		return new HttpMessageConvertersRestClientCustomizer(messageConverters.getIfUnique());
 	}
 
 	@Bean
+	@ConditionalOnMissingBean(RestClientSsl.class)
+	@ConditionalOnBean(SslBundles.class)
+	AutoConfiguredRestClientSsl restClientSsl(SslBundles sslBundles) {
+		return new AutoConfiguredRestClientSsl(sslBundles);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	RestClientBuilderConfigurer restClientBuilderConfigurer(ObjectProvider<RestClientCustomizer> customizerProvider) {
+		RestClientBuilderConfigurer configurer = new RestClientBuilderConfigurer();
+		configurer.setRestClientCustomizers(customizerProvider.orderedStream().toList());
+		return configurer;
+	}
+
+	@Bean
 	@Scope("prototype")
 	@ConditionalOnMissingBean
-	public RestClient.Builder restClientBuilder(ObjectProvider<RestClientCustomizer> customizerProvider) {
+	RestClient.Builder restClientBuilder(RestClientBuilderConfigurer restClientBuilderConfigurer) {
 		RestClient.Builder builder = RestClient.builder()
 			.requestFactory(ClientHttpRequestFactories.get(ClientHttpRequestFactorySettings.DEFAULTS));
-		customizerProvider.orderedStream().forEach((customizer) -> customizer.customize(builder));
-		return builder;
+		return restClientBuilderConfigurer.configure(builder);
 	}
 
 }

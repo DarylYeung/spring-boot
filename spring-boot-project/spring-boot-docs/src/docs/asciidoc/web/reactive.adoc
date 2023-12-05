@@ -12,13 +12,15 @@ The annotation-based one is quite close to the Spring MVC model, as shown in the
 
 include::code:MyRestController[]
 
+WebFlux is part of the Spring Framework and detailed information is available in its {spring-framework-docs}/web/webflux.html[reference documentation].
+
 "`WebFlux.fn`", the functional variant, separates the routing configuration from the actual handling of the requests, as shown in the following example:
 
 include::code:MyRoutingConfiguration[]
 
 include::code:MyUserHandler[]
 
-WebFlux is part of the Spring Framework and detailed information is available in its {spring-framework-docs}/web-reactive.html#webflux-fn[reference documentation].
+"`WebFlux.fn`" is part of the Spring Framework and detailed information is available in its {spring-framework-docs}/web/webflux-functional.html[reference documentation].
 
 TIP: You can define as many `RouterFunction` beans as you like to modularize the definition of the router.
 Beans can be ordered if you need to apply a precedence.
@@ -40,9 +42,31 @@ The auto-configuration adds the following features on top of Spring's defaults:
 * Configuring codecs for `HttpMessageReader` and `HttpMessageWriter` instances (described <<web#web.reactive.webflux.httpcodecs,later in this document>>).
 * Support for serving static resources, including support for WebJars (described <<web#web.servlet.spring-mvc.static-content,later in this document>>).
 
-If you want to keep Spring Boot WebFlux features and you want to add additional {spring-framework-docs}/web-reactive.html#webflux-config[WebFlux configuration], you can add your own `@Configuration` class of type `WebFluxConfigurer` but *without* `@EnableWebFlux`.
+If you want to keep Spring Boot WebFlux features and you want to add additional {spring-framework-docs}/web/webflux/config.html[WebFlux configuration], you can add your own `@Configuration` class of type `WebFluxConfigurer` but *without* `@EnableWebFlux`.
 
 If you want to take complete control of Spring WebFlux, you can add your own `@Configuration` annotated with `@EnableWebFlux`.
+
+
+
+[[web.reactive.webflux.conversion-service]]
+==== Spring WebFlux Conversion Service
+If you want to customize the `ConversionService` used by Spring WebFlux, you can provide a `WebFluxConfigurer` bean with an `addFormatters` method.
+
+Conversion can also be customized using the `spring.webflux.format.*` configuration properties.
+When not configured, the following defaults are used:
+
+|===
+|Property |`DateTimeFormatter`
+
+|configprop:spring.webflux.format.date[]
+|`ofLocalizedDate(FormatStyle.SHORT)`
+
+|configprop:spring.webflux.format.time[]
+|`ofLocalizedTime(FormatStyle.SHORT)`
+
+|configprop:spring.webflux.format.date-time[]
+|`ofLocalizedDateTime(FormatStyle.SHORT)`
+|===
 
 
 
@@ -98,6 +122,21 @@ It first looks for an `index.html` file in the configured static content locatio
 If one is not found, it then looks for an `index` template.
 If either is found, it is automatically used as the welcome page of the application.
 
+This only acts as a fallback for actual index routes defined by the application.
+The ordering is defined by the order of `HandlerMapping` beans which is by default the following:
+
+[cols="1,1"]
+|===
+|`RouterFunctionMapping`
+|Endpoints declared with `RouterFunction` beans
+
+|`RequestMappingHandlerMapping`
+|Endpoints declared in `@Controller` beans
+
+|`RouterFunctionMapping` for the Welcome Page
+|The welcome page support
+|===
+
 
 
 [[web.reactive.webflux.template-engines]]
@@ -123,7 +162,7 @@ For machine clients, it produces a JSON response with details of the error, the 
 For browser clients, there is a "`whitelabel`" error handler that renders the same data in HTML format.
 You can also provide your own HTML templates to display errors (see the <<web#web.reactive.webflux.error-handling.error-pages,next section>>).
 
-Before customizing error handling in Spring Boot directly, you can leverage the {spring-framework-docs}/web-reactive.html#webflux-ann-rest-exceptions[RFC 7807 Problem Details] support in Spring WebFlux.
+Before customizing error handling in Spring Boot directly, you can leverage the {spring-framework-docs}/web/webflux/ann-rest-exceptions.html[RFC 7807 Problem Details] support in Spring WebFlux.
 Spring WebFlux can produce custom error messages with the `application/problem+json` media type, like:
 
 [source,json,indent=0,subs="verbatim"]
@@ -208,9 +247,6 @@ When it does so, the orders shown in the following table will be used:
 |===
 | Web Filter | Order
 
-| `ServerHttpObservationFilter` (Micrometer Observability)
-| `Ordered.HIGHEST_PRECEDENCE + 1`
-
 | `WebFilterChainProxy` (Spring Security)
 | `-100`
 
@@ -228,6 +264,52 @@ By default, the embedded server listens for HTTP requests on port 8080.
 
 
 
+[[web.reactive.reactive-server.customizing]]
+==== Customizing Reactive Servers
+Common reactive web server settings can be configured by using Spring `Environment` properties.
+Usually, you would define the properties in your `application.properties` or `application.yaml` file.
+
+Common server settings include:
+
+* Network settings: Listen port for incoming HTTP requests (`server.port`), interface address to bind to (`server.address`), and so on.
+* Error management: Location of the error page (`server.error.path`) and so on.
+* <<howto#howto.webserver.configure-ssl,SSL>>
+* <<howto#howto.webserver.enable-response-compression,HTTP compression>>
+
+Spring Boot tries as much as possible to expose common settings, but this is not always possible.
+For those cases, dedicated namespaces such as `server.netty.*` offer server-specific customizations.
+
+TIP: See the {spring-boot-autoconfigure-module-code}/web/ServerProperties.java[`ServerProperties`] class for a complete list.
+
+
+
+[[web.reactive.reactive-server.customizing.programmatic]]
+===== Programmatic Customization
+If you need to programmatically configure your reactive web server, you can register a Spring bean that implements the `WebServerFactoryCustomizer` interface.
+`WebServerFactoryCustomizer` provides access to the `ConfigurableReactiveWebServerFactory`, which includes numerous customization setter methods.
+The following example shows programmatically setting the port:
+
+include::code:MyWebServerFactoryCustomizer[]
+
+`JettyReactiveWebServerFactory`, `NettyReactiveWebServerFactory`, `TomcatReactiveWebServerFactory`, and `UndertowReactiveWebServerFactory` are dedicated variants of `ConfigurableReactiveWebServerFactory` that have additional customization setter methods for Jetty, Reactor Netty, Tomcat, and Undertow respectively.
+The following example shows how to customize `NettyReactiveWebServerFactory` that provides access to Reactor Netty-specific configuration options:
+
+include::code:MyNettyWebServerFactoryCustomizer[]
+
+
+
+[[web.reactive.reactive-server.customizing.direct]]
+===== Customizing ConfigurableReactiveWebServerFactory Directly
+For more advanced use cases that require you to extend from `ReactiveWebServerFactory`, you can expose a bean of such type yourself.
+
+Setters are provided for many configuration options.
+Several protected method "`hooks`" are also provided should you need to do something more exotic.
+See the {spring-boot-module-api}/web/reactive/server/ConfigurableReactiveWebServerFactory.html[source code documentation] for details.
+
+NOTE: Auto-configured customizers are still applied on your custom factory, so use that option carefully.
+
+
+
 [[web.reactive.reactive-server-resources-configuration]]
 === Reactive Server Resources Configuration
 When auto-configuring a Reactor Netty or Jetty server, Spring Boot will create specific beans that will provide HTTP resources to the server instance: `ReactorResourceFactory` or `JettyResourceFactory`.
@@ -240,3 +322,5 @@ By default, those resources will be also shared with the Reactor Netty and Jetty
 Developers can override the resource configuration for Jetty and Reactor Netty by providing a custom `ReactorResourceFactory` or `JettyResourceFactory` bean - this will be applied to both clients and servers.
 
 You can learn more about the resource configuration on the client side in the <<io#io.rest-client.webclient.runtime, WebClient Runtime section>>.
+
+

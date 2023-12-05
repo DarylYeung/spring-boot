@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.stream.Stream;
 
 import io.micrometer.tracing.SpanCustomizer;
 import io.micrometer.tracing.otel.bridge.OtelCurrentTraceContext;
@@ -35,7 +34,6 @@ import io.micrometer.tracing.otel.bridge.OtelTracer.EventPublisher;
 import io.micrometer.tracing.otel.bridge.Slf4JBaggageEventListener;
 import io.micrometer.tracing.otel.bridge.Slf4JEventListener;
 import io.micrometer.tracing.otel.propagation.BaggageTextMapPropagator;
-import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.MeterProvider;
@@ -52,7 +50,7 @@ import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
-import io.opentelemetry.semconv.resource.attributes.ResourceAttributes;
+import io.opentelemetry.semconv.ResourceAttributes;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -83,7 +81,9 @@ import static org.mockito.Mockito.mock;
 class OpenTelemetryAutoConfigurationTests {
 
 	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-		.withConfiguration(AutoConfigurations.of(OpenTelemetryAutoConfiguration.class));
+		.withConfiguration(AutoConfigurations.of(
+				org.springframework.boot.actuate.autoconfigure.opentelemetry.OpenTelemetryAutoConfiguration.class,
+				OpenTelemetryAutoConfiguration.class));
 
 	@Test
 	void shouldSupplyBeans() {
@@ -91,7 +91,6 @@ class OpenTelemetryAutoConfigurationTests {
 			assertThat(context).hasSingleBean(OtelTracer.class);
 			assertThat(context).hasSingleBean(EventPublisher.class);
 			assertThat(context).hasSingleBean(OtelCurrentTraceContext.class);
-			assertThat(context).hasSingleBean(OpenTelemetry.class);
 			assertThat(context).hasSingleBean(SdkTracerProvider.class);
 			assertThat(context).hasSingleBean(ContextPropagators.class);
 			assertThat(context).hasSingleBean(Sampler.class);
@@ -123,7 +122,6 @@ class OpenTelemetryAutoConfigurationTests {
 			assertThat(context).doesNotHaveBean(OtelTracer.class);
 			assertThat(context).doesNotHaveBean(EventPublisher.class);
 			assertThat(context).doesNotHaveBean(OtelCurrentTraceContext.class);
-			assertThat(context).doesNotHaveBean(OpenTelemetry.class);
 			assertThat(context).doesNotHaveBean(SdkTracerProvider.class);
 			assertThat(context).doesNotHaveBean(ContextPropagators.class);
 			assertThat(context).doesNotHaveBean(Sampler.class);
@@ -148,8 +146,6 @@ class OpenTelemetryAutoConfigurationTests {
 			assertThat(context).hasSingleBean(EventPublisher.class);
 			assertThat(context).hasBean("customOtelCurrentTraceContext");
 			assertThat(context).hasSingleBean(OtelCurrentTraceContext.class);
-			assertThat(context).hasBean("customOpenTelemetry");
-			assertThat(context).hasSingleBean(OpenTelemetry.class);
 			assertThat(context).hasBean("customSdkTracerProvider");
 			assertThat(context).hasSingleBean(SdkTracerProvider.class);
 			assertThat(context).hasBean("customContextPropagators");
@@ -238,8 +234,8 @@ class OpenTelemetryAutoConfigurationTests {
 	void shouldSupplyB3PropagationIfPropagationPropertySet() {
 		this.contextRunner.withPropertyValues("management.tracing.propagation.type=B3").run((context) -> {
 			TextMapPropagator propagator = context.getBean(TextMapPropagator.class);
-			Stream<Class<?>> injectors = getInjectors(propagator).stream().map(Object::getClass);
-			assertThat(injectors).containsExactly(B3Propagator.class, BaggageTextMapPropagator.class);
+			List<TextMapPropagator> injectors = getInjectors(propagator);
+			assertThat(injectors).hasExactlyElementsOfTypes(B3Propagator.class, BaggageTextMapPropagator.class);
 		});
 	}
 
@@ -249,8 +245,8 @@ class OpenTelemetryAutoConfigurationTests {
 			.withPropertyValues("management.tracing.propagation.type=B3", "management.tracing.baggage.enabled=false")
 			.run((context) -> {
 				TextMapPropagator propagator = context.getBean(TextMapPropagator.class);
-				Stream<Class<?>> injectors = getInjectors(propagator).stream().map(Object::getClass);
-				assertThat(injectors).containsExactly(B3Propagator.class);
+				List<TextMapPropagator> injectors = getInjectors(propagator);
+				assertThat(injectors).hasExactlyElementsOfTypes(B3Propagator.class);
 			});
 	}
 
@@ -271,8 +267,8 @@ class OpenTelemetryAutoConfigurationTests {
 	void shouldSupplyW3CPropagationWithoutBaggageWhenDisabled() {
 		this.contextRunner.withPropertyValues("management.tracing.baggage.enabled=false").run((context) -> {
 			TextMapPropagator propagator = context.getBean(TextMapPropagator.class);
-			Stream<Class<?>> injectors = getInjectors(propagator).stream().map(Object::getClass);
-			assertThat(injectors).containsExactly(W3CTraceContextPropagator.class);
+			List<TextMapPropagator> injectors = getInjectors(propagator);
+			assertThat(injectors).hasExactlyElementsOfTypes(W3CTraceContextPropagator.class);
 		});
 	}
 
@@ -367,11 +363,6 @@ class OpenTelemetryAutoConfigurationTests {
 		@Bean
 		OtelCurrentTraceContext customOtelCurrentTraceContext() {
 			return mock(OtelCurrentTraceContext.class);
-		}
-
-		@Bean
-		OpenTelemetry customOpenTelemetry() {
-			return mock(OpenTelemetry.class);
 		}
 
 		@Bean

@@ -69,6 +69,8 @@ public abstract class BootBuildImage extends DefaultTask {
 
 	private final String projectName;
 
+	private final CacheSpec buildWorkspace;
+
 	private final CacheSpec buildCache;
 
 	private final CacheSpec launchCache;
@@ -91,6 +93,7 @@ public abstract class BootBuildImage extends DefaultTask {
 		getCleanCache().convention(false);
 		getVerboseLogging().convention(false);
 		getPublish().convention(false);
+		this.buildWorkspace = getProject().getObjects().newInstance(CacheSpec.class);
 		this.buildCache = getProject().getObjects().newInstance(CacheSpec.class);
 		this.launchCache = getProject().getObjects().newInstance(CacheSpec.class);
 		this.docker = getProject().getObjects().newInstance(DockerSpec.class);
@@ -223,6 +226,27 @@ public abstract class BootBuildImage extends DefaultTask {
 	public abstract Property<String> getNetwork();
 
 	/**
+	 * Returns the build temporary workspace that will be used when building the image.
+	 * @return the cache
+	 * @since 3.2.0
+	 */
+	@Nested
+	@Optional
+	public CacheSpec getBuildWorkspace() {
+		return this.buildWorkspace;
+	}
+
+	/**
+	 * Customizes the {@link CacheSpec} for the build temporary workspace using the given
+	 * {@code action}.
+	 * @param action the action
+	 * @since 3.2.0
+	 */
+	public void buildWorkspace(Action<CacheSpec> action) {
+		action.execute(this.buildWorkspace);
+	}
+
+	/**
 	 * Returns the build cache that will be used when building the image.
 	 * @return the cache
 	 */
@@ -281,6 +305,15 @@ public abstract class BootBuildImage extends DefaultTask {
 	public abstract Property<String> getApplicationDirectory();
 
 	/**
+	 * Returns the security options that will be applied to the builder container.
+	 * @return the security options
+	 */
+	@Input
+	@Optional
+	@Option(option = "securityOptions", description = "Security options that will be applied to the builder container")
+	public abstract ListProperty<String> getSecurityOptions();
+
+	/**
 	 * Returns the Docker configuration the builder will use.
 	 * @return docker configuration.
 	 * @since 2.4.0
@@ -327,6 +360,7 @@ public abstract class BootBuildImage extends DefaultTask {
 		request = request.withNetwork(getNetwork().getOrNull());
 		request = customizeCreatedDate(request);
 		request = customizeApplicationDirectory(request);
+		request = customizeSecurityOptions(request);
 		return request;
 	}
 
@@ -400,6 +434,9 @@ public abstract class BootBuildImage extends DefaultTask {
 	}
 
 	private BuildRequest customizeCaches(BuildRequest request) {
+		if (this.buildWorkspace.asCache() != null) {
+			request = request.withBuildWorkspace((this.buildWorkspace.asCache()));
+		}
 		if (this.buildCache.asCache() != null) {
 			request = request.withBuildCache(this.buildCache.asCache());
 		}
@@ -421,6 +458,14 @@ public abstract class BootBuildImage extends DefaultTask {
 		String applicationDirectory = getApplicationDirectory().getOrNull();
 		if (applicationDirectory != null) {
 			return request.withApplicationDirectory(applicationDirectory);
+		}
+		return request;
+	}
+
+	private BuildRequest customizeSecurityOptions(BuildRequest request) {
+		List<String> securityOptions = getSecurityOptions().getOrNull();
+		if (securityOptions != null) {
+			return request.withSecurityOptions(securityOptions);
 		}
 		return request;
 	}

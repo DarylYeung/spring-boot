@@ -47,8 +47,7 @@ import org.springframework.boot.gradle.tasks.bundling.BootJar;
 class NativeImagePluginAction implements PluginApplicationAction {
 
 	@Override
-	public Class<? extends Plugin<? extends Project>> getPluginClass()
-			throws ClassNotFoundException, NoClassDefFoundError {
+	public Class<? extends Plugin<? extends Project>> getPluginClass() {
 		return NativeImagePlugin.class;
 	}
 
@@ -84,7 +83,8 @@ class NativeImagePluginAction implements PluginApplicationAction {
 	}
 
 	private boolean isNotDevelopmentOnly(Configuration configuration) {
-		return !SpringBootPlugin.DEVELOPMENT_ONLY_CONFIGURATION_NAME.equals(configuration.getName());
+		return !SpringBootPlugin.DEVELOPMENT_ONLY_CONFIGURATION_NAME.equals(configuration.getName())
+				&& !SpringBootPlugin.TEST_AND_DEVELOPMENT_ONLY_CONFIGURATION_NAME.equals(configuration.getName());
 	}
 
 	private void configureTestNativeBinaryClasspath(SourceSetContainer sourceSets, GraalVMExtension graalVmExtension) {
@@ -115,7 +115,7 @@ class NativeImagePluginAction implements PluginApplicationAction {
 		project.getTasks()
 			.named(SpringBootPlugin.BOOT_BUILD_IMAGE_TASK_NAME, BootBuildImage.class)
 			.configure((bootBuildImage) -> {
-				bootBuildImage.getBuilder().convention("paketobuildpacks/builder:tiny");
+				bootBuildImage.getBuilder().convention("paketobuildpacks/builder-jammy-tiny:latest");
 				bootBuildImage.getEnvironment().put("BP_NATIVE_IMAGE", "true");
 			});
 	}

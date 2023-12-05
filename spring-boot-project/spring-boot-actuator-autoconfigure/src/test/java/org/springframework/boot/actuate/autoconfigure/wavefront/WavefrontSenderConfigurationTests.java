@@ -19,6 +19,9 @@ package org.springframework.boot.actuate.autoconfigure.wavefront;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import com.wavefront.sdk.common.WavefrontSender;
+import com.wavefront.sdk.common.clients.service.token.CSPTokenService;
+import com.wavefront.sdk.common.clients.service.token.NoopProxyTokenService;
+import com.wavefront.sdk.common.clients.service.token.WavefrontTokenService;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.Test;
 
@@ -116,6 +119,47 @@ class WavefrontSenderConfigurationTests {
 	void allowsWavefrontSenderToBeCustomized() {
 		this.contextRunner.withUserConfiguration(CustomSenderConfiguration.class)
 			.run((context) -> assertThat(context).hasSingleBean(WavefrontSender.class).hasBean("customSender"));
+	}
+
+	@Test
+	void shouldApplyTokenTypeWavefrontApiToken() {
+		this.contextRunner
+			.withPropertyValues("management.wavefront.api-token-type=WAVEFRONT_API_TOKEN",
+					"management.wavefront.api-token=abcde")
+			.run((context) -> {
+				WavefrontSender sender = context.getBean(WavefrontSender.class);
+				assertThat(sender).extracting("tokenService").isInstanceOf(WavefrontTokenService.class);
+			});
+	}
+
+	@Test
+	void shouldApplyTokenTypeCspApiToken() {
+		this.contextRunner
+			.withPropertyValues("management.wavefront.api-token-type=CSP_API_TOKEN",
+					"management.wavefront.api-token=abcde")
+			.run((context) -> {
+				WavefrontSender sender = context.getBean(WavefrontSender.class);
+				assertThat(sender).extracting("tokenService").isInstanceOf(CSPTokenService.class);
+			});
+	}
+
+	@Test
+	void shouldApplyTokenTypeCspClientCredentials() {
+		this.contextRunner
+			.withPropertyValues("management.wavefront.api-token-type=CSP_CLIENT_CREDENTIALS",
+					"management.wavefront.api-token=clientid=cid,clientsecret=csec")
+			.run((context) -> {
+				WavefrontSender sender = context.getBean(WavefrontSender.class);
+				assertThat(sender).extracting("tokenService").isInstanceOf(CSPTokenService.class);
+			});
+	}
+
+	@Test
+	void shouldApplyTokenTypeNoToken() {
+		this.contextRunner.withPropertyValues("management.wavefront.api-token-type=NO_TOKEN").run((context) -> {
+			WavefrontSender sender = context.getBean(WavefrontSender.class);
+			assertThat(sender).extracting("tokenService").isInstanceOf(NoopProxyTokenService.class);
+		});
 	}
 
 	@Configuration(proxyBeanMethods = false)

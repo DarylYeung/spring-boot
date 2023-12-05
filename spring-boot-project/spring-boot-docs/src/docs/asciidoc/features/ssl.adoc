@@ -77,6 +77,33 @@ When used to secure a client-side connection, a `truststore` is typically config
                 certificate: "classpath:server.crt"
 ----
 
+[TIP]
+====
+PEM content can be used directly for both the `certificate` and `private-key` properties.
+If the property values contains `BEGIN` and `END` markers then they will be treated as PEM content rather than a resource location.
+
+The following example shows how a truststore certificate can be defined:
+
+[source,yaml,indent=0,subs="verbatim",configblocks]
+----
+    spring:
+      ssl:
+        bundle:
+          pem:
+            mybundle:
+              truststore:
+                certificate: |
+                  -----BEGIN CERTIFICATE-----
+                  MIID1zCCAr+gAwIBAgIUNM5QQv8IzVQsgSmmdPQNaqyzWs4wDQYJKoZIhvcNAQEL
+                  BQAwezELMAkGA1UEBhMCWFgxEjAQBgNVBAgMCVN0YXRlTmFtZTERMA8GA1UEBwwI
+                  ...
+                  V0IJjcmYjEZbTvpjFKznvaFiOUv+8L7jHQ1/Yf+9c3C8gSjdUfv88m17pqYXd+Ds
+                  HEmfmNNjht130UyjNCITmLVXyy5p35vWmdf95U3uEbJSnNVtXH8qRmN9oK9mUpDb
+                  ngX6JBJI7fw7tXoqWSLHNiBODM88fUlQSho8
+                  -----END CERTIFICATE-----
+----
+====
+
 See {spring-boot-autoconfigure-module-code}/ssl/PemSslBundleProperties.java[PemSslBundleProperties] for the full set of supported properties.
 
 
@@ -105,3 +132,33 @@ The following example shows retrieving an `SslBundle` and using it to create an 
 
 include::code:MyComponent[]
 
+
+
+[[features.ssl.reloading]]
+=== Reloading SSL bundles
+SSL bundles can be reloaded when the key material changes.
+The component consuming the bundle has to be compatible with reloadable SSL bundles.
+Currently the following components are compatible:
+
+* Tomcat web server
+* Netty web server
+
+To enable reloading, you need to opt-in via a configuration property as shown in this example:
+
+[source,yaml,indent=0,subs="verbatim",configblocks]
+----
+    spring:
+      ssl:
+        bundle:
+          pem:
+            mybundle:
+              reload-on-update: true
+              keystore:
+                certificate: "file:/some/directory/application.crt"
+                private-key: "file:/some/directory/application.key"
+----
+
+A file watcher is then watching the files and if they change, the SSL bundle will be reloaded.
+This in turn triggers a reload in the consuming component, e.g. Tomcat rotates the certificates in the SSL enabled connectors.
+
+You can configure the quiet period (to make sure that there are no more changes) of the file watcher with the configprop:spring.ssl.bundle.watch.file.quiet-period[] property.

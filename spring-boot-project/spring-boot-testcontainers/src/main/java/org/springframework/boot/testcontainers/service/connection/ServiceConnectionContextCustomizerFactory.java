@@ -41,6 +41,7 @@ import org.springframework.util.ReflectionUtils;
  * @author Moritz Halbritter
  * @author Andy Wilkinson
  * @author Phillip Webb
+ * @author Scott Frederick
  */
 class ServiceConnectionContextCustomizerFactory implements ContextCustomizerFactory {
 
@@ -48,19 +49,26 @@ class ServiceConnectionContextCustomizerFactory implements ContextCustomizerFact
 	public ContextCustomizer createContextCustomizer(Class<?> testClass,
 			List<ContextConfigurationAttributes> configAttributes) {
 		List<ContainerConnectionSource<?>> sources = new ArrayList<>();
-		findSources(testClass, sources);
+		collectSources(testClass, sources);
 		return new ServiceConnectionContextCustomizer(sources);
 	}
 
-	private void findSources(Class<?> clazz, List<ContainerConnectionSource<?>> sources) {
-		ReflectionUtils.doWithFields(clazz, (field) -> {
+	private void collectSources(Class<?> candidate, List<ContainerConnectionSource<?>> sources) {
+		if (candidate == Object.class || candidate == null) {
+			return;
+		}
+		ReflectionUtils.doWithLocalFields(candidate, (field) -> {
 			MergedAnnotations annotations = MergedAnnotations.from(field);
 			annotations.stream(ServiceConnection.class)
 				.forEach((annotation) -> sources.add(createSource(field, annotation)));
 		});
-		if (TestContextAnnotationUtils.searchEnclosingClass(clazz)) {
-			findSources(clazz.getEnclosingClass(), sources);
+		if (TestContextAnnotationUtils.searchEnclosingClass(candidate)) {
+			collectSources(candidate.getEnclosingClass(), sources);
 		}
+		for (Class<?> implementedInterface : candidate.getInterfaces()) {
+			collectSources(implementedInterface, sources);
+		}
+		collectSources(candidate.getSuperclass(), sources);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -74,13 +82,21 @@ class ServiceConnectionContextCustomizerFactory implements ContextCustomizerFact
 				field.getDeclaringClass().getName(), Container.class.getName()));
 		Class<C> containerType = (Class<C>) fieldValue.getClass();
 		C container = (C) fieldValue;
-		return new ContainerConnectionSource<>("test", origin, containerType, container.getDockerImageName(),
-				annotation, () -> container);
+		// container.getDockerImageName() fails if there is no running docker environment
+		// When running tests that doesn't matter, but running AOT processing should be
+		// possible without a Docker environment
+		String dockerImageName = isAotProcessingInProgress() ? null : container.getDockerImageName();
+		return new ContainerConnectionSource<>("test", origin, containerType, dockerImageName, annotation,
+				() -> container);
 	}
 
 	private Object getFieldValue(Field field) {
 		ReflectionUtils.makeAccessible(field);
 		return ReflectionUtils.getField(field, null);
+	}
+
+	private boolean isAotProcessingInProgress() {
+		return Boolean.getBoolean("spring.aot.processing");
 	}
 
 }

@@ -29,6 +29,9 @@ import java.util.function.Consumer;
 import javax.sql.DataSource;
 
 import com.zaxxer.hikari.HikariDataSource;
+import liquibase.UpdateSummaryEnum;
+import liquibase.UpdateSummaryOutputEnum;
+import liquibase.command.core.helpers.ShowSummaryArgument;
 import liquibase.integration.spring.SpringLiquibase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -220,6 +223,9 @@ class LiquibaseAutoConfigurationTests {
 				assertThat(liquibase.isDropFirst()).isEqualTo(properties.isDropFirst());
 				assertThat(liquibase.isClearCheckSums()).isEqualTo(properties.isClearChecksums());
 				assertThat(liquibase.isTestRollbackOnUpdate()).isEqualTo(properties.isTestRollbackOnUpdate());
+				assertThat(liquibase).extracting("showSummary").isNull();
+				assertThat(ShowSummaryArgument.SHOW_SUMMARY.getDefaultValue()).isEqualTo(UpdateSummaryEnum.SUMMARY);
+				assertThat(liquibase).extracting("showSummaryOutput").isEqualTo(UpdateSummaryOutputEnum.LOG);
 			}));
 	}
 
@@ -266,8 +272,12 @@ class LiquibaseAutoConfigurationTests {
 
 	@Test
 	void overrideClearChecksums() {
+		String jdbcUrl = "jdbc:hsqldb:mem:liquibase" + UUID.randomUUID();
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-			.withPropertyValues("spring.liquibase.clear-checksums:true")
+			.withPropertyValues("spring.liquibase.url:" + jdbcUrl)
+			.run((context) -> assertThat(context).hasNotFailed());
+		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
+			.withPropertyValues("spring.liquibase.clear-checksums:true", "spring.liquibase.url:" + jdbcUrl)
 			.run(assertLiquibase((liquibase) -> assertThat(liquibase.isClearCheckSums()).isTrue()));
 	}
 
@@ -380,6 +390,28 @@ class LiquibaseAutoConfigurationTests {
 	}
 
 	@Test
+	void overrideShowSummary() {
+		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
+			.withPropertyValues("spring.liquibase.show-summary=off")
+			.run(assertLiquibase((liquibase) -> {
+				UpdateSummaryEnum showSummary = (UpdateSummaryEnum) ReflectionTestUtils.getField(liquibase,
+						"showSummary");
+				assertThat(showSummary).isEqualTo(UpdateSummaryEnum.OFF);
+			}));
+	}
+
+	@Test
+	void overrideShowSummaryOutput() {
+		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
+			.withPropertyValues("spring.liquibase.show-summary-output=all")
+			.run(assertLiquibase((liquibase) -> {
+				UpdateSummaryOutputEnum showSummaryOutput = (UpdateSummaryOutputEnum) ReflectionTestUtils
+					.getField(liquibase, "showSummaryOutput");
+				assertThat(showSummaryOutput).isEqualTo(UpdateSummaryOutputEnum.ALL);
+			}));
+	}
+
+	@Test
 	@SuppressWarnings("unchecked")
 	void testOverrideParameters() {
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
@@ -396,7 +428,7 @@ class LiquibaseAutoConfigurationTests {
 	void rollbackFile(@TempDir Path temp) throws IOException {
 		File file = Files.createTempFile(temp, "rollback-file", "sql").toFile();
 		this.contextRunner.withUserConfiguration(EmbeddedDataSourceConfiguration.class)
-			.withPropertyValues("spring.liquibase.rollbackFile:" + file.getAbsolutePath())
+			.withPropertyValues("spring.liquibase.rollback-file:" + file.getAbsolutePath())
 			.run((context) -> {
 				SpringLiquibase liquibase = context.getBean(SpringLiquibase.class);
 				File actualFile = (File) ReflectionTestUtils.getField(liquibase, "rollbackFile");

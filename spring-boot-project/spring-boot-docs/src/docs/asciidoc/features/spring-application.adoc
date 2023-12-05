@@ -129,11 +129,12 @@ The printed banner is registered as a singleton bean under the following name: `
 
 [NOTE]
 ====
-The `${application.version}` and `${application.formatted-version}` properties are only available if you are using Spring Boot launchers.
-The values will not be resolved if you are running an unpacked jar and starting it with `java -cp <classpath> <mainclass>`.
+The `application.title`, `application.version`, and `application.formatted-version` properties are only available if you are using `java -jar` or `java -cp` with Spring Boot launchers.
+The values will not be resolved if you are running an unpacked jar and starting it with `java -cp <classpath> <mainclass>`
+or running your application as a native image.
 
-This is why we recommend that you always launch unpacked jars using `java org.springframework.boot.loader.JarLauncher`.
-This will initialize the `application.*` banner variables before building the classpath and launching your app.
+To use the `application.*` properties, launch your application as a packed jar using `java -jar` or as an unpacked jar using `java org.springframework.boot.loader.launch.JarLauncher`.
+This will initialize the `application.*` banner properties before building the classpath and launching your app.
 ====
 
 
@@ -355,7 +356,7 @@ TIP: If you want to know on which HTTP port the application is running, get the 
 === Application Startup tracking
 During the application startup, the `SpringApplication` and the `ApplicationContext` perform many tasks related to the application lifecycle,
 the beans lifecycle or even processing application events.
-With {spring-framework-api}/core/metrics/ApplicationStartup.html[`ApplicationStartup`], Spring Framework  {spring-framework-docs}/core.html#context-functionality-startup[allows you to track the application startup sequence with `StartupStep` objects].
+With {spring-framework-api}/core/metrics/ApplicationStartup.html[`ApplicationStartup`], Spring Framework  {spring-framework-docs}/core/beans/context-introduction.html#context-functionality-startup[allows you to track the application startup sequence with `StartupStep` objects].
 This data can be collected for profiling purposes, or just to have a better understanding of an application startup process.
 
 You can choose an `ApplicationStartup` implementation when setting up the `SpringApplication` instance.
@@ -376,3 +377,17 @@ Spring Boot ships with the `BufferingApplicationStartup` variant; this implement
 Applications can ask for the bean of type `BufferingApplicationStartup` in any component.
 
 Spring Boot can also be configured to expose a {spring-boot-actuator-restapi-docs}/#startup[`startup` endpoint] that provides this information as a JSON document.
+
+
+
+[[features.spring-application.virtual-threads]]
+=== Virtual threads
+If you're running on Java 21 or up, you can enable virtual threads by setting the property configprop:spring.threads.virtual.enabled[] to `true`.
+
+WARNING: One side effect of virtual threads is that these threads are daemon threads.
+A JVM will exit if there are no non-daemon threads.
+This behavior can be a problem when you rely on, e.g. `@Scheduled` beans to keep your application alive.
+If you use virtual threads, the scheduler thread is a virtual thread and therefore a daemon thread and won't keep the JVM alive.
+This does not only affect scheduling, but can be the case with other technologies, too!
+To keep the JVM running in all cases, it is recommended to set the property configprop:spring.main.keep-alive[] to `true`.
+This ensures that the JVM is kept alive, even if all threads are virtual threads.

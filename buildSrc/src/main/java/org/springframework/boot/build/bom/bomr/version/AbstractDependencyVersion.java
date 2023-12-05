@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,14 @@ abstract class AbstractDependencyVersion implements DependencyVersion {
 		ComparableVersion otherComparable = (other instanceof AbstractDependencyVersion otherVersion)
 				? otherVersion.comparableVersion : new ComparableVersion(other.toString());
 		return this.comparableVersion.compareTo(otherComparable);
+	}
+
+	@Override
+	public boolean isUpgrade(DependencyVersion candidate, boolean movingToSnapshots) {
+		ComparableVersion comparableCandidate = (candidate instanceof AbstractDependencyVersion)
+				? ((AbstractDependencyVersion) candidate).comparableVersion
+				: new ComparableVersion(candidate.toString());
+		return comparableCandidate.compareTo(this.comparableVersion) > 0;
 	}
 
 	@Override

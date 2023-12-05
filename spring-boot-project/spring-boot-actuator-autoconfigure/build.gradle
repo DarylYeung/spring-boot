@@ -37,7 +37,7 @@ dependencies {
 	optional("io.dropwizard.metrics:metrics-jmx")
 	optional("io.lettuce:lettuce-core")
 	optional("io.micrometer:micrometer-observation")
-	optional("io.micrometer:micrometer-core")
+	optional("io.micrometer:micrometer-jakarta9")
 	optional("io.micrometer:micrometer-tracing")
 	optional("io.micrometer:micrometer-tracing-bridge-brave")
 	optional("io.micrometer:micrometer-tracing-bridge-otel")
@@ -68,13 +68,14 @@ dependencies {
 	optional("io.micrometer:micrometer-registry-signalfx")
 	optional("io.micrometer:micrometer-registry-statsd")
 	optional("io.micrometer:micrometer-registry-wavefront")
+	optional("io.zipkin.reporter2:zipkin-reporter-brave")
 	optional("io.zipkin.reporter2:zipkin-sender-urlconnection")
 	optional("io.opentelemetry:opentelemetry-exporter-zipkin")
 	optional("io.opentelemetry:opentelemetry-exporter-otlp")
 	optional("io.projectreactor.netty:reactor-netty-http")
 	optional("io.r2dbc:r2dbc-pool")
-	optional("io.r2dbc:r2dbc-spi")
 	optional("io.r2dbc:r2dbc-proxy")
+	optional("io.r2dbc:r2dbc-spi")
 	optional("jakarta.jms:jakarta.jms-api")
 	optional("jakarta.persistence:jakarta.persistence-api")
 	optional("jakarta.servlet:jakarta.servlet-api")
@@ -107,7 +108,6 @@ dependencies {
 	optional("org.hibernate.validator:hibernate-validator")
 	optional("org.influxdb:influxdb-java")
 	optional("org.liquibase:liquibase-core") {
-		exclude group: "javax.activation", module: "javax.activation-api"
 		exclude group: "javax.xml.bind", module: "jaxb-api"
 	}
 	optional("org.mongodb:mongodb-driver-reactivestreams")
@@ -161,9 +161,7 @@ dependencies {
 	testImplementation("org.assertj:assertj-core")
 	testImplementation("org.awaitility:awaitility")
 	testImplementation("org.cache2k:cache2k-api")
-	testImplementation("org.eclipse.jetty:jetty-webapp") {
-		exclude group: "org.eclipse.jetty.toolchain", module: "jetty-jakarta-servlet-api"
-	}
+	testImplementation("org.eclipse.jetty.ee10:jetty-ee10-webapp")
 	testImplementation("org.glassfish.jersey.ext:jersey-spring6")
 	testImplementation("org.glassfish.jersey.media:jersey-media-json-jackson")
 	testImplementation("org.hamcrest:hamcrest")
@@ -251,8 +249,12 @@ tasks.withType(org.asciidoctor.gradle.jvm.AbstractAsciidoctorTask) {
 	dependsOn dependencyVersions
 	doFirst {
 		def versionConstraints = dependencyVersions.versionConstraints
+		def toAntoraVersion = version -> {
+			String formatted = version.split("\\.").take(2).join('.')
+			return version.endsWith("-SNAPSHOT") ? formatted + "-SNAPSHOT" : formatted
+		}
 		def integrationVersion = versionConstraints["org.springframework.integration:spring-integration-core"]
-		def integrationDocs = String.format("https://docs.spring.io/spring-integration/docs/%s/reference/html/", integrationVersion)
+		String integrationDocs = String.format("https://docs.spring.io/spring-integration/reference/%s", toAntoraVersion(integrationVersion))
 		attributes "spring-integration-docs": integrationDocs
 	}
 	dependsOn documentationTest

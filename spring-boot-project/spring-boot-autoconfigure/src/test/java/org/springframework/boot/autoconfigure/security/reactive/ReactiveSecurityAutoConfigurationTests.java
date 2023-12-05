@@ -20,11 +20,16 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration.EnableWebFluxSecurityConfiguration;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ReactiveWebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.WebFilterChainProxy;
 import org.springframework.web.reactive.config.WebFluxConfigurer;
 
@@ -38,20 +43,37 @@ import static org.mockito.Mockito.mock;
  */
 class ReactiveSecurityAutoConfigurationTests {
 
-	private final ReactiveWebApplicationContextRunner contextRunner = new ReactiveWebApplicationContextRunner();
+	private final ReactiveWebApplicationContextRunner contextRunner = new ReactiveWebApplicationContextRunner()
+		.withConfiguration(AutoConfigurations.of(ReactiveSecurityAutoConfiguration.class));
 
 	@Test
 	void backsOffWhenWebFilterChainProxyBeanPresent() {
-		this.contextRunner.withConfiguration(AutoConfigurations.of(ReactiveSecurityAutoConfiguration.class))
-			.withUserConfiguration(WebFilterChainProxyConfiguration.class)
+		this.contextRunner.withUserConfiguration(WebFilterChainProxyConfiguration.class)
 			.run((context) -> assertThat(context).hasSingleBean(WebFilterChainProxy.class));
 	}
 
 	@Test
-	void enablesWebFluxSecurity() {
+	void backsOffWhenReactiveAuthenticationManagerNotPresent() {
+		this.contextRunner.run((context) -> assertThat(context).hasSingleBean(ReactiveSecurityAutoConfiguration.class)
+			.doesNotHaveBean(EnableWebFluxSecurityConfiguration.class));
+	}
+
+	@Test
+	void enablesWebFluxSecurityWhenUserDetailsServiceIsPresent() {
+		this.contextRunner.withUserConfiguration(UserDetailsServiceConfiguration.class)
+			.run((context) -> assertThat(context).getBean(WebFilterChainProxy.class).isNotNull());
+	}
+
+	@Test
+	void enablesWebFluxSecurityWhenReactiveAuthenticationManagerIsPresent() {
 		this.contextRunner
-			.withConfiguration(AutoConfigurations.of(ReactiveSecurityAutoConfiguration.class,
-					ReactiveUserDetailsServiceAutoConfiguration.class))
+			.withBean(ReactiveAuthenticationManager.class, () -> mock(ReactiveAuthenticationManager.class))
+			.run((context) -> assertThat(context).getBean(WebFilterChainProxy.class).isNotNull());
+	}
+
+	@Test
+	void enablesWebFluxSecurityWhenSecurityWebFilterChainIsPresent() {
+		this.contextRunner.withBean(SecurityWebFilterChain.class, () -> mock(SecurityWebFilterChain.class))
 			.run((context) -> assertThat(context).getBean(WebFilterChainProxy.class).isNotNull());
 	}
 
@@ -60,8 +82,7 @@ class ReactiveSecurityAutoConfigurationTests {
 		this.contextRunner
 			.withClassLoader(new FilteredClassLoader(Flux.class, EnableWebFluxSecurity.class, WebFilterChainProxy.class,
 					WebFluxConfigurer.class))
-			.withConfiguration(AutoConfigurations.of(ReactiveSecurityAutoConfiguration.class,
-					ReactiveUserDetailsServiceAutoConfiguration.class))
+			.withUserConfiguration(UserDetailsServiceConfiguration.class)
 			.run((context) -> assertThat(context).doesNotHaveBean(WebFilterChainProxy.class));
 	}
 
@@ -71,6 +92,17 @@ class ReactiveSecurityAutoConfigurationTests {
 		@Bean
 		WebFilterChainProxy webFilterChainProxy() {
 			return mock(WebFilterChainProxy.class);
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class UserDetailsServiceConfiguration {
+
+		@Bean
+		MapReactiveUserDetailsService userDetailsService() {
+			return new MapReactiveUserDetailsService(
+					User.withUsername("alice").password("secret").roles("admin").build());
 		}
 
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2022 the original author or authors.
+ * Copyright 2012-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,14 @@
 package org.springframework.boot.autoconfigure;
 
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import jakarta.validation.Configuration;
 import jakarta.validation.Validation;
+import org.apache.catalina.authenticator.NonLoginAuthenticator;
+import org.apache.tomcat.util.http.Rfc6265CookieProcessor;
 
 import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
 import org.springframework.boot.context.event.ApplicationFailedEvent;
@@ -107,6 +110,8 @@ public class BackgroundPreinitializer implements ApplicationListener<SpringAppli
 						runSafely(new JacksonInitializer());
 					}
 					runSafely(new CharsetInitializer());
+					runSafely(new TomcatInitializer());
+					runSafely(new JdkInitializer());
 					preinitializationComplete.countDown();
 				}
 
@@ -185,6 +190,25 @@ public class BackgroundPreinitializer implements ApplicationListener<SpringAppli
 		@Override
 		public void run() {
 			StandardCharsets.UTF_8.name();
+		}
+
+	}
+
+	private static class TomcatInitializer implements Runnable {
+
+		@Override
+		public void run() {
+			new Rfc6265CookieProcessor();
+			new NonLoginAuthenticator();
+		}
+
+	}
+
+	private static class JdkInitializer implements Runnable {
+
+		@Override
+		public void run() {
+			ZoneId.systemDefault();
 		}
 
 	}

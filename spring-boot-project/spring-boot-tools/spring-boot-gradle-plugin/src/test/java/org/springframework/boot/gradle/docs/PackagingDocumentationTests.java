@@ -166,7 +166,7 @@ class PackagingDocumentationTests {
 		assertThat(file).isFile();
 		try (JarFile jar = new JarFile(file)) {
 			assertThat(jar.getManifest().getMainAttributes().getValue("Main-Class"))
-				.isEqualTo("org.springframework.boot.loader.PropertiesLauncher");
+				.isEqualTo("org.springframework.boot.loader.launch.PropertiesLauncher");
 		}
 	}
 
@@ -300,6 +300,14 @@ class PackagingDocumentationTests {
 	}
 
 	@TestTemplate
+	void bootBuildImageWithDockerHostColima() {
+		BuildResult result = this.gradleBuild.script("src/docs/gradle/packaging/boot-build-image-docker-host-colima")
+			.build("bootBuildImageDocker");
+		assertThat(result.getOutput())
+			.contains("host=unix://" + System.getProperty("user.home") + "/.colima/docker.sock");
+	}
+
+	@TestTemplate
 	void bootBuildImageWithDockerUserAuth() {
 		BuildResult result = this.gradleBuild.script("src/docs/gradle/packaging/boot-build-image-docker-auth-user")
 			.build("bootBuildImageDocker");
@@ -337,6 +345,15 @@ class PackagingDocumentationTests {
 			.build("bootBuildImageCaches");
 		assertThat(result.getOutput()).containsPattern("buildCache=cache-gradle-[\\d]+.build")
 			.containsPattern("launchCache=cache-gradle-[\\d]+.launch");
+	}
+
+	@TestTemplate
+	void bootBuildImageWithBindCaches() {
+		BuildResult result = this.gradleBuild.script("src/docs/gradle/packaging/boot-build-image-bind-caches")
+			.build("bootBuildImageCaches");
+		assertThat(result.getOutput()).containsPattern("buildWorkspace=/tmp/cache-gradle-[\\d]+.work")
+			.containsPattern("buildCache=/tmp/cache-gradle-[\\d]+.build")
+			.containsPattern("launchCache=/tmp/cache-gradle-[\\d]+.launch");
 	}
 
 	protected void jarFile(File file) throws IOException {

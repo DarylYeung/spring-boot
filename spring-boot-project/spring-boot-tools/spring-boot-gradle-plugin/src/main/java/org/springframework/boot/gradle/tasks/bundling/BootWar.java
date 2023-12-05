@@ -37,6 +37,8 @@ import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.bundling.War;
 import org.gradle.work.DisableCachingByDefault;
 
+import org.springframework.boot.loader.tools.LoaderImplementation;
+
 /**
  * A custom {@link War} task that produces a Spring Boot executable war.
  *
@@ -48,7 +50,7 @@ import org.gradle.work.DisableCachingByDefault;
 @DisableCachingByDefault(because = "Not worth caching")
 public abstract class BootWar extends War implements BootArchive {
 
-	private static final String LAUNCHER = "org.springframework.boot.loader.WarLauncher";
+	private static final String LAUNCHER = "org.springframework.boot.loader.launch.WarLauncher";
 
 	private static final String CLASSES_DIRECTORY = "WEB-INF/classes/";
 
@@ -115,12 +117,14 @@ public abstract class BootWar extends War implements BootArchive {
 
 	@Override
 	protected CopyAction createCopyAction() {
+		LoaderImplementation loaderImplementation = getLoaderImplementation().getOrElse(LoaderImplementation.DEFAULT);
 		if (!isLayeredDisabled()) {
 			LayerResolver layerResolver = new LayerResolver(this.resolvedDependencies, this.layered, this::isLibrary);
 			String layerToolsLocation = this.layered.getIncludeLayerTools().get() ? LIB_DIRECTORY : null;
-			return this.support.createCopyAction(this, this.resolvedDependencies, layerResolver, layerToolsLocation);
+			return this.support.createCopyAction(this, this.resolvedDependencies, loaderImplementation, false,
+					layerResolver, layerToolsLocation);
 		}
-		return this.support.createCopyAction(this, this.resolvedDependencies);
+		return this.support.createCopyAction(this, this.resolvedDependencies, loaderImplementation, false);
 	}
 
 	@Override

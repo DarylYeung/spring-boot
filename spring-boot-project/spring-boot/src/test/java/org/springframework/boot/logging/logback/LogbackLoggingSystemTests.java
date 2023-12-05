@@ -21,6 +21,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -38,6 +39,7 @@ import ch.qos.logback.core.ConsoleAppender;
 import ch.qos.logback.core.encoder.LayoutWrappingEncoder;
 import ch.qos.logback.core.rolling.RollingFileAppender;
 import ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy;
+import ch.qos.logback.core.util.DynamicClassLoadingException;
 import ch.qos.logback.core.util.StatusPrinter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,12 +60,14 @@ import org.springframework.boot.logging.LoggingInitializationContext;
 import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.logging.LoggingSystemProperties;
 import org.springframework.boot.logging.LoggingSystemProperty;
+import org.springframework.boot.testsupport.classpath.ClassPathExclusions;
 import org.springframework.boot.testsupport.classpath.ClassPathOverrides;
 import org.springframework.boot.testsupport.system.CapturedOutput;
 import org.springframework.boot.testsupport.system.OutputCaptureExtension;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.ConfigurableConversionService;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.MapPropertySource;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.util.ReflectionUtils;
@@ -89,8 +93,10 @@ import static org.mockito.Mockito.times;
  * @author Eddú Meléndez
  * @author Scott Frederick
  * @author Jonatan Ivanov
+ * @author Moritz Halbritter
  */
 @ExtendWith(OutputCaptureExtension.class)
+@ClassPathExclusions({ "log4j-core-*.jar", "log4j-api-*.jar" })
 class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 
 	private final LogbackLoggingSystem loggingSystem = new LogbackLoggingSystem(getClass().getClassLoader());
@@ -126,7 +132,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 	}
 
 	@Test
-	@ClassPathOverrides("org.jboss.logging:jboss-logging:3.5.0.Final")
+	@ClassPathOverrides({ "org.jboss.logging:jboss-logging:3.5.0.Final", "org.apache.logging.log4j:log4j-core:2.19.0" })
 	void jbossLoggingRoutesThroughLog4j2ByDefault() {
 		System.getProperties().remove("org.jboss.logging.provider");
 		org.jboss.logging.Logger jbossLogger = org.jboss.logging.Logger.getLogger(getClass());
@@ -239,7 +245,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 	}
 
 	@Test
-	void getLoggingConfigurations() {
+	void getLoggerConfigurations() {
 		this.loggingSystem.beforeInitialize();
 		initialize(this.initializationContext, null, null);
 		this.loggingSystem.setLogLevel(getClass().getName(), LogLevel.DEBUG);
@@ -249,7 +255,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 	}
 
 	@Test
-	void getLoggingConfiguration() {
+	void getLoggerConfiguration() {
 		this.loggingSystem.beforeInitialize();
 		initialize(this.initializationContext, null, null);
 		this.loggingSystem.setLogLevel(getClass().getName(), LogLevel.DEBUG);
@@ -259,7 +265,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 	}
 
 	@Test
-	void getLoggingConfigurationForLoggerThatDoesNotExistShouldReturnNull() {
+	void getLoggerConfigurationForLoggerThatDoesNotExistShouldReturnNull() {
 		this.loggingSystem.beforeInitialize();
 		initialize(this.initializationContext, null, null);
 		LoggerConfiguration configuration = this.loggingSystem.getLoggerConfiguration("doesnotexist");
@@ -267,7 +273,7 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 	}
 
 	@Test
-	void getLoggingConfigurationForALL() {
+	void getLoggerConfigurationForALL() {
 		this.loggingSystem.beforeInitialize();
 		initialize(this.initializationContext, null, null);
 		Logger logger = (Logger) LoggerFactory.getILoggerFactory().getLogger(getClass().getName());
@@ -769,6 +775,67 @@ class LogbackLoggingSystemTests extends AbstractLoggingSystemTests {
 		initialize(this.initializationContext, null, null);
 		this.logger.info("Hello world");
 		assertThat(getLineWithText(output, "Hello world")).doesNotContain("myapp");
+	}
+
+	@Test
+	void whenConfigurationErrorIsDetectedUnderlyingCausesAreIncludedAsSuppressedExceptions() {
+		this.loggingSystem.beforeInitialize();
+		assertThatIllegalStateException()
+			.isThrownBy(() -> initialize(this.initializationContext, "classpath:logback-broken.xml",
+					getLogFile(tmpDir() + "/tmp.log", null)))
+			.satisfies((ex) -> assertThat(ex.getSuppressed())
+				.hasAtLeastOneElementOfType(DynamicClassLoadingException.class));
+	}
+
+	@Test
+	void whenConfigLocationIsNotXmlThenIllegalArgumentExceptionShouldBeThrown() {
+		this.loggingSystem.beforeInitialize();
+		assertThatIllegalStateException()
+			.isThrownBy(() -> initialize(this.initializationContext, "classpath:logback-invalid-format.txt",
+					getLogFile(tmpDir() + "/tmp.log", null)))
+			.satisfies((ex) -> assertThat(ex.getCause()).isInstanceOf(IllegalArgumentException.class)
+				.hasMessageStartingWith("Unsupported file extension"));
+	}
+
+	@Test
+	void whenConfigLocationIsXmlAndHasQueryParametersThenIllegalArgumentExceptionShouldNotBeThrown() {
+		this.loggingSystem.beforeInitialize();
+		assertThatIllegalStateException()
+			.isThrownBy(() -> initialize(this.initializationContext, "file:///logback-nonexistent.xml?raw=true",
+					getLogFile(tmpDir() + "/tmp.log", null)))
+			.satisfies((ex) -> assertThat(ex.getCause()).isNotInstanceOf(IllegalArgumentException.class));
+	}
+
+	@Test
+	void shouldRespectConsoleThreshold(CapturedOutput output) {
+		this.environment.setProperty("logging.threshold.console", "warn");
+		this.loggingSystem.beforeInitialize();
+		initialize(this.initializationContext, null, null);
+		this.logger.info("Some info message");
+		this.logger.warn("Some warn message");
+		assertThat(output).doesNotContain("Some info message").contains("Some warn message");
+	}
+
+	@Test
+	void shouldRespectFileThreshold() {
+		this.environment.setProperty("logging.threshold.file", "warn");
+		this.loggingSystem.beforeInitialize();
+		initialize(this.initializationContext, null, getLogFile(null, tmpDir()));
+		this.logger.info("Some info message");
+		this.logger.warn("Some warn message");
+		Path file = Path.of(tmpDir(), "spring.log");
+		assertThat(file).content(StandardCharsets.UTF_8)
+			.doesNotContain("Some info message")
+			.contains("Some warn message");
+	}
+
+	@Test
+	void applyingSystemPropertiesDoesNotCauseUnwantedStatusWarnings(CapturedOutput output) {
+		this.loggingSystem.beforeInitialize();
+		this.environment.getPropertySources()
+			.addFirst(new MapPropertySource("test", Map.of("logging.pattern.console", "[CONSOLE]%m")));
+		this.loggingSystem.initialize(this.initializationContext, "classpath:logback-nondefault.xml", null);
+		assertThat(output).doesNotContain("WARN");
 	}
 
 	private void initialize(LoggingInitializationContext context, String configLocation, LogFile logFile) {

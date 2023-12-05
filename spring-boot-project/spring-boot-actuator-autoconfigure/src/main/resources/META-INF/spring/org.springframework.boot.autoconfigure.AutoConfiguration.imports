@@ -43,6 +43,7 @@ org.springframework.boot.actuate.autoconfigure.metrics.JvmMetricsAutoConfigurati
 org.springframework.boot.actuate.autoconfigure.metrics.KafkaMetricsAutoConfiguration
 org.springframework.boot.actuate.autoconfigure.metrics.Log4J2MetricsAutoConfiguration
 org.springframework.boot.actuate.autoconfigure.metrics.LogbackMetricsAutoConfiguration
+org.springframework.boot.actuate.autoconfigure.metrics.MetricsAspectsAutoConfiguration
 org.springframework.boot.actuate.autoconfigure.metrics.MetricsAutoConfiguration
 org.springframework.boot.actuate.autoconfigure.metrics.MetricsEndpointAutoConfiguration
 org.springframework.boot.actuate.autoconfigure.metrics.SystemMetricsAutoConfiguration
@@ -88,6 +89,7 @@ org.springframework.boot.actuate.autoconfigure.data.mongo.MongoReactiveHealthCon
 org.springframework.boot.actuate.autoconfigure.neo4j.Neo4jHealthContributorAutoConfiguration
 org.springframework.boot.actuate.autoconfigure.observation.ObservationAutoConfiguration
 org.springframework.boot.actuate.autoconfigure.observation.web.servlet.WebMvcObservationAutoConfiguration
+org.springframework.boot.actuate.autoconfigure.opentelemetry.OpenTelemetryAutoConfiguration
 org.springframework.boot.actuate.autoconfigure.quartz.QuartzEndpointAutoConfiguration
 org.springframework.boot.actuate.autoconfigure.r2dbc.ConnectionFactoryHealthContributorAutoConfiguration
 org.springframework.boot.actuate.autoconfigure.r2dbc.R2dbcObservationAutoConfiguration

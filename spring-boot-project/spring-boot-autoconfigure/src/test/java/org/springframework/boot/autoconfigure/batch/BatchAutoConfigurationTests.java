@@ -39,10 +39,10 @@ import org.springframework.batch.core.configuration.JobFactory;
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.support.DefaultBatchConfiguration;
-import org.springframework.batch.core.configuration.support.JobRegistryBeanPostProcessor;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.job.AbstractJob;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +62,7 @@ import org.springframework.boot.autoconfigure.logging.ConditionEvaluationReportL
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.test.City;
 import org.springframework.boot.autoconfigure.transaction.TransactionAutoConfiguration;
+import org.springframework.boot.autoconfigure.transaction.TransactionManagerCustomizationAutoConfiguration;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.jdbc.init.DataSourceScriptDatabaseInitializer;
 import org.springframework.boot.logging.LogLevel;
@@ -96,21 +97,25 @@ import static org.mockito.Mockito.mock;
  * @author Stephane Nicoll
  * @author Vedran Pavic
  * @author Kazuki Shimizu
+ * @author Mahmoud Ben Hassine
  */
 @ExtendWith(OutputCaptureExtension.class)
 class BatchAutoConfigurationTests {
 
-	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-		.withConfiguration(AutoConfigurations.of(BatchAutoConfiguration.class, TransactionAutoConfiguration.class,
-				DataSourceTransactionManagerAutoConfiguration.class));
+	private final ApplicationContextRunner contextRunner = new ApplicationContextRunner().withConfiguration(
+			AutoConfigurations.of(BatchAutoConfiguration.class, TransactionManagerCustomizationAutoConfiguration.class,
+					TransactionAutoConfiguration.class, DataSourceTransactionManagerAutoConfiguration.class));
 
 	@Test
 	void testDefaultContext() {
 		this.contextRunner.withInitializer(ConditionEvaluationReportLoggingListener.forLogLevel(LogLevel.INFO))
 			.withUserConfiguration(TestConfiguration.class, EmbeddedDataSourceConfiguration.class)
 			.run((context) -> {
+				assertThat(context).hasSingleBean(JobRepository.class);
 				assertThat(context).hasSingleBean(JobLauncher.class);
 				assertThat(context).hasSingleBean(JobExplorer.class);
+				assertThat(context).hasSingleBean(JobRegistry.class);
+				assertThat(context).hasSingleBean(JobOperator.class);
 				assertThat(context.getBean(BatchProperties.class).getJdbc().getInitializeSchema())
 					.isEqualTo(DatabaseInitializationMode.EMBEDDED);
 				assertThat(new JdbcTemplate(context.getBean(DataSource.class))
@@ -516,13 +521,6 @@ class BatchAutoConfigurationTests {
 		private JobRepository jobRepository;
 
 		@Bean
-		static JobRegistryBeanPostProcessor registryProcessor(JobRegistry jobRegistry) {
-			JobRegistryBeanPostProcessor processor = new JobRegistryBeanPostProcessor();
-			processor.setJobRegistry(jobRegistry);
-			return processor;
-		}
-
-		@Bean
 		Job discreteJob() {
 			AbstractJob job = new AbstractJob("discreteRegisteredJob") {
 
@@ -685,7 +683,17 @@ class BatchAutoConfigurationTests {
 
 		@Bean
 		Job job2() {
-			return mock(Job.class);
+			return new Job() {
+				@Override
+				public String getName() {
+					return "discreteLocalJob2";
+				}
+
+				@Override
+				public void execute(JobExecution execution) {
+					execution.setStatus(BatchStatus.COMPLETED);
+				}
+			};
 		}
 
 	}

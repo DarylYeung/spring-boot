@@ -18,12 +18,17 @@ package org.springframework.boot.ssl.pem;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import org.springframework.core.io.ClassPathResource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 /**
  * Tests for {@link PemContent}.
@@ -33,12 +38,61 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PemContentTests {
 
 	@Test
-	void loadWhenContentIsNullReturnsNull() {
-		assertThat(PemContent.load(null)).isNull();
+	void getCertificateWhenNoCertificatesThrowsException() {
+		PemContent content = PemContent.of("");
+		assertThatIllegalStateException().isThrownBy(content::getCertificates)
+			.withMessage("Missing certificates or unrecognized format");
 	}
 
 	@Test
-	void loadWhenContentIsPemContentReturnsContent() {
+	void getCertificateReturnsCertificates() throws Exception {
+		PemContent content = PemContent.load(contentFromClasspath("/test-cert-chain.pem"));
+		List<X509Certificate> certificates = content.getCertificates();
+		assertThat(certificates).isNotNull();
+		assertThat(certificates).hasSize(2);
+		assertThat(certificates.get(0).getType()).isEqualTo("X.509");
+		assertThat(certificates.get(1).getType()).isEqualTo("X.509");
+	}
+
+	@Test
+	void getPrivateKeyWhenNoKeyThrowsException() {
+		PemContent content = PemContent.of("");
+		assertThatIllegalStateException().isThrownBy(content::getPrivateKey)
+			.withMessage("Missing private key or unrecognized format");
+	}
+
+	@Test
+	void getPrivateKeyReturnsPrivateKey() throws Exception {
+		PemContent content = PemContent
+			.load(contentFromClasspath("/org/springframework/boot/web/server/pkcs8/dsa.key"));
+		PrivateKey privateKey = content.getPrivateKey();
+		assertThat(privateKey).isNotNull();
+		assertThat(privateKey.getFormat()).isEqualTo("PKCS#8");
+		assertThat(privateKey.getAlgorithm()).isEqualTo("DSA");
+	}
+
+	@Test
+	void equalsAndHashCode() {
+		PemContent c1 = PemContent.of("aaa");
+		PemContent c2 = PemContent.of("aaa");
+		PemContent c3 = PemContent.of("bbb");
+		assertThat(c1.hashCode()).isEqualTo(c2.hashCode());
+		assertThat(c1).isEqualTo(c1).isEqualTo(c2).isNotEqualTo(c3);
+	}
+
+	@Test
+	void toStringReturnsString() {
+		PemContent content = PemContent.of("test");
+		assertThat(content).hasToString("test");
+	}
+
+	@Test
+	void loadWithStringWhenContentIsNullReturnsNull() throws Exception {
+		assertThat(PemContent.load((String) null)).isNull();
+	}
+
+	@Test
+	void loadWithStringWhenContentIsPemContentReturnsContent() throws Exception {
 		String content = """
 				-----BEGIN CERTIFICATE-----
 				MIICpDCCAYwCCQCDOqHKPjAhCTANBgkqhkiG9w0BAQUFADAUMRIwEAYDVQQDDAls
@@ -57,21 +111,43 @@ class PemContentTests {
 				+lGuHKdhNOVW9CmqPD1y76o6c8PQKuF7KZEoY2jvy3GeIfddBvqXgZ4PbWvFz1jO
 				32C9XWHwRA4=
 				-----END CERTIFICATE-----""";
-		assertThat(PemContent.load(content)).isEqualTo(content);
+		assertThat(PemContent.load(content)).hasToString(content);
 	}
 
 	@Test
-	void loadWhenClasspathLocationReturnsContent() throws IOException {
-		String actual = PemContent.load("classpath:test-cert.pem");
-		String expected = new ClassPathResource("test-cert.pem").getContentAsString(StandardCharsets.UTF_8);
+	void loadWithStringWhenClasspathLocationReturnsContent() throws IOException {
+		String actual = PemContent.load("classpath:test-cert.pem").toString();
+		String expected = contentFromClasspath("test-cert.pem");
 		assertThat(actual).isEqualTo(expected);
 	}
 
 	@Test
-	void loadWhenFileLocationReturnsContent() throws IOException {
-		String actual = PemContent.load("src/test/resources/test-cert.pem");
-		String expected = new ClassPathResource("test-cert.pem").getContentAsString(StandardCharsets.UTF_8);
+	void loadWithStringWhenFileLocationReturnsContent() throws IOException {
+		String actual = PemContent.load("src/test/resources/test-cert.pem").toString();
+		String expected = contentFromClasspath("test-cert.pem");
 		assertThat(actual).isEqualTo(expected);
+	}
+
+	@Test
+	void loadWithPathReturnsContent() throws IOException {
+		Path path = Path.of("src/test/resources/test-cert.pem");
+		String actual = PemContent.load(path).toString();
+		String expected = contentFromClasspath("test-cert.pem");
+		assertThat(actual).isEqualTo(expected);
+	}
+
+	@Test
+	void ofWhenNullReturnsNull() {
+		assertThat(PemContent.of(null)).isNull();
+	}
+
+	@Test
+	void ofReturnsContent() {
+		assertThat(PemContent.of("test")).hasToString("test");
+	}
+
+	private static String contentFromClasspath(String path) throws IOException {
+		return new ClassPathResource(path).getContentAsString(StandardCharsets.UTF_8);
 	}
 
 }

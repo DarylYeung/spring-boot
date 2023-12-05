@@ -8,7 +8,7 @@ The parent project provides the following features:
 * Compilation with `-parameters`.
 * A dependency management section, inherited from the `spring-boot-dependencies` POM, that manages the versions of common dependencies.
 This dependency management lets you omit `<version>` tags for those dependencies when used in your own POM.
-* An execution of the <<goals.adoc#goals-repackage, `repackage` goal>> with a `repackage` execution id.
+* An execution of the <<goals.adoc#packaging.repackage-goal, `repackage` goal>> with a `repackage` execution id.
 * A `native` profile that configures the build to be able to generate a Native image.
 * Sensible https://maven.apache.org/plugins/maven-resources-plugin/examples/filter.html[resource filtering].
 * Sensible plugin configuration (https://github.com/ktoso/maven-git-commit-id-plugin[Git commit ID], and https://maven.apache.org/plugins/maven-shade-plugin/[shade]).
@@ -17,7 +17,24 @@ This dependency management lets you omit `<version>` tags for those dependencies
 NOTE: Since the `application.properties` and `application.yml` files accept Spring style placeholders (`${...}`), the Maven filtering is changed to use `@..@` placeholders.
 (You can override that by setting a Maven property called `resource.delimiter`.)
 
+[NOTE]
+====
+The `spring-boot-starter-parent` sets the `maven.compiler.release` property, which restricts the `--add-exports`, `--add-reads`, and `--patch-module` options https://openjdk.org/jeps/247[if they modify system modules].
+In case you need to use those options, unset `maven.compiler.release`:
 
+[source,xml,indent=0,subs="verbatim,quotes,attributes"]
+----
+<maven.compiler.release></maven.compiler.release>
+----
+
+and then configure the source and the target options instead:
+
+[source,xml,indent=0,subs="verbatim,quotes,attributes"]
+----
+<maven.compiler.source>${java.version}</maven.compiler.source>
+<maven.compiler.target>${java.version}</maven.compiler.target>
+----
+====
 
 [[using.parent-pom]]
 == Inheriting the Starter Parent POM

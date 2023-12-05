@@ -1,6 +1,6 @@
 [[data.sql]]
 == SQL Databases
-The {spring-framework}[Spring Framework] provides extensive support for working with SQL databases, from direct JDBC access using `JdbcTemplate` to complete "`object relational mapping`" technologies such as Hibernate.
+The {spring-framework}[Spring Framework] provides extensive support for working with SQL databases, from direct JDBC access using `JdbcClient` or `JdbcTemplate` to complete "`object relational mapping`" technologies such as Hibernate.
 {spring-data}[Spring Data] provides an additional level of functionality: creating `Repository` implementations directly from interfaces and using conventions to generate queries from your method names.
 
 
@@ -176,6 +176,17 @@ If more than one `JdbcTemplate` is defined and no primary candidate exists, the 
 
 
 
+[[data.sql.jdbc-client]]
+=== Using JdbcClient
+Spring's `JdbcClient` is auto-configured based on the presence of a `NamedParameterJdbcTemplate`.
+You can inject it directly in your own beans as well, as shown in the following example:
+
+include::code:MyBean[]
+
+If you rely on auto-configuration to create the underlying `JdbcTemplate`, any customization using `spring.jdbc.template.*` properties is taken into account in the client as well.
+
+
+
 [[data.sql.jpa-and-spring-data]]
 === JPA and Spring Data JPA
 The Java Persistence API is a standard technology that lets you "`map`" objects to relational databases.
@@ -195,7 +206,7 @@ You can follow the https://spring.io/guides/gs/accessing-data-jpa/["`Accessing D
 ==== Entity Classes
 Traditionally, JPA "`Entity`" classes are specified in a `persistence.xml` file.
 With Spring Boot, this file is not necessary and "`Entity Scanning`" is used instead.
-By default, all packages below your main configuration class (the one annotated with `@EnableAutoConfiguration` or `@SpringBootApplication`) are searched.
+By default the <<using#using.auto-configuration.packages,auto-configuration packages>> are scanned.
 
 Any classes annotated with `@Entity`, `@Embeddable`, or `@MappedSuperclass` are considered.
 A typical entity class resembles the following example:
@@ -216,7 +227,9 @@ For example, a `CityRepository` interface might declare a `findAllByState(String
 For more complex queries, you can annotate your method with Spring Data's {spring-data-jpa-api}/repository/Query.html[`Query`] annotation.
 
 Spring Data repositories usually extend from the {spring-data-commons-api}/repository/Repository.html[`Repository`] or {spring-data-commons-api}/repository/CrudRepository.html[`CrudRepository`] interfaces.
-If you use auto-configuration, repositories are searched from the package containing your main configuration class (the one annotated with `@EnableAutoConfiguration` or `@SpringBootApplication`) down.
+If you use auto-configuration, the <<using#using.auto-configuration.packages,auto-configuration packages>> are searched for repositories.
+
+TIP: You can customize the locations to look for repositories using `@EnableJpaRepositories`.
 
 The following example shows a typical Spring Data repository interface definition:
 
@@ -247,7 +260,7 @@ To use Spring Data Envers, make sure your repository extends from `RevisionRepos
 
 include::code:CountryRepository[]
 
-NOTE: For more details, check the {spring-data-envers-doc}[Spring Data Envers reference documentation].
+NOTE: For more details, check the {spring-data-jpa-docs}/#envers[Spring Data Envers reference documentation].
 
 
 
@@ -504,7 +517,7 @@ For example, a `CityRepository` interface might declare a `findAllByState(String
 For more complex queries, you can annotate your method with Spring Data's {spring-data-r2dbc-api}/repository/Query.html[`Query`] annotation.
 
 Spring Data repositories usually extend from the {spring-data-commons-api}/repository/Repository.html[`Repository`] or {spring-data-commons-api}/repository/CrudRepository.html[`CrudRepository`] interfaces.
-If you use auto-configuration, repositories are searched from the package containing your main configuration class (the one annotated with `@EnableAutoConfiguration` or `@SpringBootApplication`) down.
+If you use auto-configuration, the <<using#using.auto-configuration.packages,auto-configuration packages>> are searched for repositories.
 
 The following example shows a typical Spring Data repository interface definition:
 

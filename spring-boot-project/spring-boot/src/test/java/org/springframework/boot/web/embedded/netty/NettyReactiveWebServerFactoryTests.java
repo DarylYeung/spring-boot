@@ -34,12 +34,18 @@ import reactor.netty.DisposableServer;
 import reactor.netty.http.server.HttpServer;
 import reactor.test.StepVerifier;
 
+import org.springframework.boot.ssl.DefaultSslBundleRegistry;
+import org.springframework.boot.ssl.SslBundle;
+import org.springframework.boot.ssl.SslBundles;
+import org.springframework.boot.ssl.pem.PemSslStoreBundle;
+import org.springframework.boot.ssl.pem.PemSslStoreDetails;
 import org.springframework.boot.web.reactive.server.AbstractReactiveWebServerFactory;
 import org.springframework.boot.web.reactive.server.AbstractReactiveWebServerFactoryTests;
 import org.springframework.boot.web.server.PortInUseException;
 import org.springframework.boot.web.server.Shutdown;
 import org.springframework.boot.web.server.Ssl;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ReactorResourceFactory;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.http.server.reactive.ReactorHttpHandlerAdapter;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -47,6 +53,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
@@ -57,6 +64,7 @@ import static org.mockito.Mockito.mock;
  *
  * @author Brian Clozel
  * @author Chris Bono
+ * @author Moritz Halbritter
  */
 class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactoryTests {
 
@@ -78,6 +86,23 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 		this.webServer = factory.getWebServer(new EchoHandler());
 		this.webServer.start();
 		assertThat(this.webServer.getPort()).isEqualTo(-1);
+	}
+
+	@Test
+	void resourceFactoryAndWebServerLifecycle() {
+		NettyReactiveWebServerFactory factory = getFactory();
+		factory.setPort(0);
+		ReactorResourceFactory resourceFactory = new ReactorResourceFactory();
+		factory.setResourceFactory(resourceFactory);
+		this.webServer = factory.getWebServer(new EchoHandler());
+		assertThatNoException().isThrownBy(() -> {
+			resourceFactory.start();
+			this.webServer.start();
+			this.webServer.stop();
+			resourceFactory.stop();
+			resourceFactory.start();
+			this.webServer.start();
+		});
 	}
 
 	private void portMatchesRequirement(PortInUseException exception) {
@@ -114,6 +139,16 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 	}
 
 	@Test
+	void whenSslBundleIsUpdatedThenSslIsReloaded() {
+		DefaultSslBundleRegistry bundles = new DefaultSslBundleRegistry("bundle1", createSslBundle("1.key", "1.crt"));
+		Mono<String> result = testSslWithBundle(bundles, "bundle1");
+		StepVerifier.create(result).expectNext("Hello World").expectComplete().verify(Duration.ofSeconds(30));
+		bundles.updateBundle("bundle1", createSslBundle("2.key", "2.crt"));
+		Mono<String> result2 = executeSslRequest();
+		StepVerifier.create(result2).expectNext("Hello World").expectComplete().verify(Duration.ofSeconds(30));
+	}
+
+	@Test
 	void whenServerIsShuttingDownGracefullyThenNewConnectionsCannotBeMade() {
 		NettyReactiveWebServerFactory factory = getFactory();
 		factory.setShutdown(Shutdown.GRACEFUL);
@@ -142,7 +177,7 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 	protected void startedLogMessageWithMultiplePorts() {
 	}
 
-	protected Mono<String> testSslWithAlias(String alias) {
+	private Mono<String> testSslWithAlias(String alias) {
 		String keyStore = "classpath:test.jks";
 		String keyPassword = "password";
 		NettyReactiveWebServerFactory factory = getFactory();
@@ -153,6 +188,19 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 		factory.setSsl(ssl);
 		this.webServer = factory.getWebServer(new EchoHandler());
 		this.webServer.start();
+		return executeSslRequest();
+	}
+
+	private Mono<String> testSslWithBundle(SslBundles sslBundles, String bundle) {
+		NettyReactiveWebServerFactory factory = getFactory();
+		factory.setSslBundles(sslBundles);
+		factory.setSsl(Ssl.forBundle(bundle));
+		this.webServer = factory.getWebServer(new EchoHandler());
+		this.webServer.start();
+		return executeSslRequest();
+	}
+
+	private Mono<String> executeSslRequest() {
 		ReactorClientHttpConnector connector = buildTrustAllSslConnector();
 		WebClient client = WebClient.builder()
 			.baseUrl("https://localhost:" + this.webServer.getPort())
@@ -181,6 +229,13 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 		throw new UnsupportedOperationException("Reactor Netty does not support multiple ports");
 	}
 
+	private static SslBundle createSslBundle(String key, String certificate) {
+		return SslBundle.of(new PemSslStoreBundle(
+				new PemSslStoreDetails(null, "classpath:org/springframework/boot/web/embedded/netty/" + certificate,
+						"classpath:org/springframework/boot/web/embedded/netty/" + key),
+				null));
+	}
+
 	static class NoPortNettyReactiveWebServerFactory extends NettyReactiveWebServerFactory {
 
 		NoPortNettyReactiveWebServerFactory(int port) {
@@ -199,7 +254,7 @@ class NettyReactiveWebServerFactoryTests extends AbstractReactiveWebServerFactor
 
 		NoPortNettyWebServer(HttpServer httpServer, ReactorHttpHandlerAdapter handlerAdapter, Duration lifecycleTimeout,
 				Shutdown shutdown) {
-			super(httpServer, handlerAdapter, lifecycleTimeout, shutdown);
+			super(httpServer, handlerAdapter, lifecycleTimeout, shutdown, null);
 		}
 
 		@Override

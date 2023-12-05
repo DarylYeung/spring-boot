@@ -10,6 +10,7 @@
 	<suppress files="LogbackInitializer\.java" checks="IllegalImport" />
 	<suppress files="LogbackLoggingSystem\.java" checks="IllegalImport" />
 	<suppress files="LogbackLoggingSystemTests\.java" checks="IllegalImport" />
+	<suppress files="LogbackLoggingSystemParallelInitializationTests\.java" checks="IllegalImport" />
 	<suppress files="LogbackConfigurationAotContributionTests\.java" checks="IllegalImport" />
 	<suppress files="MetricsAutoConfigurationMeterRegistryPostProcessorIntegrationTests\.java" checks="IllegalImport" message="LoggerFactory"/>
 	<suppress files="SpringApplicationTests\.java" checks="FinalClass" />
@@ -32,6 +33,7 @@
 	<suppress files="[\\/]spring-boot-docs[\\/].*MyConfiguration__BeanDefinitions" checks="JavadocMethod|SpringHideUtilityClassConstructor" />
 	<suppress files="[\\/]spring-boot-smoke-tests[\\/]" checks="JavadocPackage|JavadocType" />
 	<suppress files="[\\/]spring-boot-smoke-tests[\\/]" checks="ImportControl" />
+	<suppress files="[\\/]spring-boot-smoke-tests[\\/].*SamplePulsarApplicationTests" checks="SpringHideUtilityClassConstructor" />
 	<suppress files="[\\/]spring-boot-smoke-tests[\\/]" id="mainCodeIllegalImportCheck" />
 	<suppress files="[\\/]spring-boot-deployment-tests[\\/]" checks="JavadocPackage|JavadocType" />
 	<suppress files="[\\/]spring-boot-integration-tests[\\/]" checks="JavadocType" />
@@ -79,4 +81,5 @@
 	<suppress files="ConversionServiceTest\.java" checks="SpringTestFileName" />
 	<suppress files="ImportTestcontainersTests\.java" checks="InterfaceIsType" />
 	<suppress files="MyContainers\.java" checks="InterfaceIsType" />
+	<suppress files="CertificateMatchingTest\.java" checks="SpringTestFileName" />
 </suppressions>

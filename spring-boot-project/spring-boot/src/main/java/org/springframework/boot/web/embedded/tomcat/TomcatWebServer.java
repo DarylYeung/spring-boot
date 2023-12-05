@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import javax.naming.NamingException;
@@ -119,6 +120,8 @@ public class TomcatWebServer implements WebServer {
 					}
 				});
 
+				disableBindOnInit();
+
 				// Start the server to trigger initialization listeners
 				this.tomcat.start();
 
@@ -134,7 +137,7 @@ public class TomcatWebServer implements WebServer {
 
 				// Unlike Jetty, all Tomcat threads are daemon threads. We create a
 				// blocking non-daemon to stop immediate shutdown
-				startDaemonAwaitThread();
+				startNonDaemonAwaitThread();
 			}
 			catch (Exception ex) {
 				stopSilently();
@@ -162,12 +165,29 @@ public class TomcatWebServer implements WebServer {
 	}
 
 	private void removeServiceConnectors() {
-		for (Service service : this.tomcat.getServer().findServices()) {
-			Connector[] connectors = service.findConnectors().clone();
+		doWithConnectors((service, connectors) -> {
 			this.serviceConnectors.put(service, connectors);
 			for (Connector connector : connectors) {
 				service.removeConnector(connector);
 			}
+		});
+	}
+
+	private void disableBindOnInit() {
+		doWithConnectors((service, connectors) -> {
+			for (Connector connector : connectors) {
+				Object bindOnInit = connector.getProperty("bindOnInit");
+				if (bindOnInit == null) {
+					connector.setProperty("bindOnInit", "false");
+				}
+			}
+		});
+	}
+
+	private void doWithConnectors(BiConsumer<Service, Connector[]> consumer) {
+		for (Service service : this.tomcat.getServer().findServices()) {
+			Connector[] connectors = service.findConnectors().clone();
+			consumer.accept(service, connectors);
 		}
 	}
 
@@ -189,7 +209,7 @@ public class TomcatWebServer implements WebServer {
 		}
 	}
 
-	private void startDaemonAwaitThread() {
+	private void startNonDaemonAwaitThread() {
 		Thread awaitThread = new Thread("container-" + (containerCounter.get())) {
 
 			@Override
@@ -344,6 +364,7 @@ public class TomcatWebServer implements WebServer {
 		}
 	}
 
+	@Override
 	public void destroy() throws WebServerException {
 		try {
 			stopTomcat();

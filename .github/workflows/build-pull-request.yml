@@ -7,7 +7,7 @@ permissions:
 jobs:
   build:
     name: Build pull request
-    runs-on: ubuntu-latest
+    runs-on: ubuntu22-8-32
     if: ${{ github.repository == 'spring-projects/spring-boot' }}
     steps:
       - name: Set up JDK 17
@@ -17,13 +17,13 @@ jobs:
           distribution: 'liberica'
 
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Validate Gradle wrapper
         uses: gradle/wrapper-validation-action@v1
 
       - name: Set up Gradle
-        uses: gradle/gradle-build-action@a4cf152f482c7ca97ef56ead29bf08bcd953284c
+        uses: gradle/gradle-build-action@87a9a15658c426a54dd469d4fc7dc1a73ca9d4a6
 
       - name: Build
         env:

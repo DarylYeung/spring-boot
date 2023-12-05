@@ -35,6 +35,7 @@ import reactor.netty.http.server.HttpServer;
 import reactor.netty.http.server.HttpServerRequest;
 import reactor.netty.http.server.HttpServerResponse;
 import reactor.netty.http.server.HttpServerRoutes;
+import reactor.netty.resources.LoopResources;
 
 import org.springframework.boot.web.server.GracefulShutdownCallback;
 import org.springframework.boot.web.server.GracefulShutdownResult;
@@ -42,6 +43,7 @@ import org.springframework.boot.web.server.PortInUseException;
 import org.springframework.boot.web.server.Shutdown;
 import org.springframework.boot.web.server.WebServer;
 import org.springframework.boot.web.server.WebServerException;
+import org.springframework.http.client.ReactorResourceFactory;
 import org.springframework.http.server.reactive.ReactorHttpHandlerAdapter;
 import org.springframework.util.Assert;
 
@@ -74,12 +76,39 @@ public class NettyWebServer implements WebServer {
 
 	private final GracefulShutdown gracefulShutdown;
 
+	private final ReactorResourceFactory resourceFactory;
+
 	private List<NettyRouteProvider> routeProviders = Collections.emptyList();
 
 	private volatile DisposableServer disposableServer;
 
+	/**
+	 * Creates a new {@code NettyWebServer} instance.
+	 * @param httpServer the HTTP server
+	 * @param handlerAdapter the handler adapter
+	 * @param lifecycleTimeout the lifecycle timeout, may be {@code null}
+	 * @param shutdown the shutdown, may be {@code null}
+	 * @deprecated since 3.2.0 for removal in 3.4.0 in favor of
+	 * {@link #NettyWebServer(HttpServer, ReactorHttpHandlerAdapter, Duration, Shutdown, ReactorResourceFactory)}
+	 */
+	@Deprecated(since = "3.2.0", forRemoval = true)
 	public NettyWebServer(HttpServer httpServer, ReactorHttpHandlerAdapter handlerAdapter, Duration lifecycleTimeout,
 			Shutdown shutdown) {
+		this(httpServer, handlerAdapter, lifecycleTimeout, shutdown, null);
+	}
+
+	/**
+	 * Creates a new {@code NettyWebServer} instance.
+	 * @param httpServer the HTTP server
+	 * @param handlerAdapter the handler adapter
+	 * @param lifecycleTimeout the lifecycle timeout, may be {@code null}
+	 * @param shutdown the shutdown, may be {@code null}
+	 * @param resourceFactory the factory for the server's {@link LoopResources loop
+	 * resources}, may be {@code null}
+	 * @since 3.2.0
+	 */
+	public NettyWebServer(HttpServer httpServer, ReactorHttpHandlerAdapter handlerAdapter, Duration lifecycleTimeout,
+			Shutdown shutdown, ReactorResourceFactory resourceFactory) {
 		Assert.notNull(httpServer, "HttpServer must not be null");
 		Assert.notNull(handlerAdapter, "HandlerAdapter must not be null");
 		this.lifecycleTimeout = lifecycleTimeout;
@@ -87,6 +116,7 @@ public class NettyWebServer implements WebServer {
 		this.httpServer = httpServer.channelGroup(new DefaultChannelGroup(new DefaultEventExecutor()));
 		this.gracefulShutdown = (shutdown == Shutdown.GRACEFUL) ? new GracefulShutdown(() -> this.disposableServer)
 				: null;
+		this.resourceFactory = resourceFactory;
 	}
 
 	public void setRouteProviders(List<NettyRouteProvider> routeProviders) {
@@ -118,7 +148,7 @@ public class NettyWebServer implements WebServer {
 		StringBuilder message = new StringBuilder();
 		tryAppend(message, "port %s", server::port);
 		tryAppend(message, "path %s", server::path);
-		return (message.length() > 0) ? "Netty started on " + message : "Netty started";
+		return (!message.isEmpty()) ? "Netty started on " + message : "Netty started";
 	}
 
 	protected String getStartedLogMessage() {
@@ -128,10 +158,11 @@ public class NettyWebServer implements WebServer {
 	private void tryAppend(StringBuilder message, String format, Supplier<Object> supplier) {
 		try {
 			Object value = supplier.get();
-			message.append((message.length() != 0) ? " " : "");
+			message.append((!message.isEmpty()) ? " " : "");
 			message.append(String.format(format, value));
 		}
 		catch (UnsupportedOperationException ex) {
+			// Ignore
 		}
 	}
 
@@ -142,6 +173,11 @@ public class NettyWebServer implements WebServer {
 		}
 		else {
 			server = server.route(this::applyRouteProviders);
+		}
+		if (this.resourceFactory != null) {
+			LoopResources resources = this.resourceFactory.getLoopResources();
+			Assert.notNull(resources, "No LoopResources: is ReactorResourceFactory not initialized yet?");
+			server = server.runOn(resources);
 		}
 		if (this.lifecycleTimeout != null) {
 			return server.bindNow(this.lifecycleTimeout);

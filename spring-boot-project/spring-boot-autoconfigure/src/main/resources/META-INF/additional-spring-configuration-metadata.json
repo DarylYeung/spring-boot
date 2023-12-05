@@ -1560,6 +1560,10 @@
       "defaultValue": "default"
     },
     {
+      "name": "spring.jackson.datatype.enum",
+      "description": "Jackson on/off features for enums."
+    },
+    {
       "name": "spring.jackson.joda-date-time-format",
       "type": "java.lang.String",
       "description": "Joda date time format string. If not configured, \"date-format\" is used as a fallback if it is configured with a format string.",
@@ -1570,6 +1574,18 @@
     {
       "name": "spring.jersey.type",
       "defaultValue": "servlet"
+    },
+    {
+      "name": "spring.jms.listener.session.acknowledge-mode",
+      "defaultValue": "auto"
+    },
+    {
+      "name": "spring.jms.template.session.acknowledge-mode",
+      "defaultValue": "auto"
+    },
+    {
+      "name": "spring.jmx.registration-policy",
+      "defaultValue": "fail-on-existing"
     },
     {
       "name": "spring.jpa.hibernate.use-new-id-generator-mappings",
@@ -1907,6 +1923,14 @@
       }
     },
     {
+      "name": "spring.liquibase.show-summary",
+      "defaultValue": "summary"
+    },
+    {
+      "name": "spring.liquibase.show-summary-output",
+      "defaultValue": "log"
+    },
+    {
       "name": "spring.mail.test-connection",
       "description": "Whether to test that the mail server is available on startup.",
       "sourceType": "org.springframework.boot.autoconfigure.mail.MailProperties",
@@ -2004,6 +2028,18 @@
       "defaultValue": "bolt://localhost:7687"
     },
     {
+      "name": "spring.pulsar.function.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to enable function support.",
+      "defaultValue": true
+    },
+    {
+      "name": "spring.pulsar.producer.cache.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to enable caching in the PulsarProducerFactory.",
+      "defaultValue": true
+    },
+    {
       "name": "spring.quartz.jdbc.comment-prefix",
       "defaultValue": [
         "#",
@@ -2065,6 +2101,10 @@
         "replacement": "spring.rabbitmq.template.default-receive-queue",
         "level": "error"
       }
+    },
+    {
+      "name": "spring.reactor.context-propagation",
+      "defaultValue": "limited"
     },
     {
       "name": "spring.reactor.stacktrace-mode.enabled",
@@ -2739,6 +2779,14 @@
       "defaultValue": false
     },
     {
+      "name": "spring.webflux.multipart.streaming",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "reason": "Replaced by the PartEventHttpMessageReader and the PartEvent API.",
+        "level": "error"
+      }
+    },
+    {
       "name": "spring.webservices.wsdl-locations",
       "type": "java.util.List<java.lang.String>",
       "description": "Comma-separated list of locations of WSDLs and accompanying XSDs to be exposed as beans."
@@ -2976,8 +3024,38 @@
       ]
     },
     {
-      "name": "spring.jmx.registration-policy",
-      "defaultValue": "fail-on-existing"
+      "name": "spring.jms.listener.session.acknowledge-mode",
+      "values": [
+        {
+          "value": "auto",
+          "description": "Messages sent or received from the session are automatically acknowledged. This is the simplest mode and enables once-only message delivery guarantee."
+        },
+        {
+          "value": "client",
+          "description": "Messages are acknowledged once the message listener implementation has called \"jakarta.jms.Message#acknowledge()\". This mode gives the application (rather than the JMS provider) complete control over message acknowledgement."
+        },
+        {
+          "value": "dups_ok",
+          "description": "Similar to auto acknowledgment except that said acknowledgment is lazy. As a consequence, the messages might be delivered more than once. This mode enables at-least-once message delivery guarantee."
+        }
+      ]
+    },
+    {
+      "name": "spring.jms.template.session.acknowledge-mode",
+      "values": [
+        {
+          "value": "auto",
+          "description": "Messages sent or received from the session are automatically acknowledged. This is the simplest mode and enables once-only message delivery guarantee."
+        },
+        {
+          "value": "client",
+          "description": "Messages are acknowledged once the message listener implementation has called \"jakarta.jms.Message#acknowledge()\". This mode gives the application (rather than the JMS provider) complete control over message acknowledgement."
+        },
+        {
+          "value": "dups_ok",
+          "description": "Similar to auto acknowledgment except that said acknowledgment is lazy. As a consequence, the messages might be delivered more than once. This mode enables at-least-once message delivery guarantee."
+        }
+      ]
     },
     {
       "name": "spring.jmx.server",
@@ -3282,14 +3360,6 @@
           "name": "any"
         }
       ]
-    },
-    {
-      "name": "spring.webflux.multipart.streaming",
-      "type": "java.lang.Boolean",
-      "deprecation": {
-        "reason": "Replaced by the PartEventHttpMessageReader and the PartEvent API.",
-        "level": "error"
-      }
     }
   ]
 }

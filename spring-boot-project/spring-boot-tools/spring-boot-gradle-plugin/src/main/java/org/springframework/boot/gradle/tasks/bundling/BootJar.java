@@ -37,6 +37,8 @@ import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.work.DisableCachingByDefault;
 
+import org.springframework.boot.loader.tools.LoaderImplementation;
+
 /**
  * A custom {@link Jar} task that produces a Spring Boot executable jar.
  *
@@ -49,7 +51,7 @@ import org.gradle.work.DisableCachingByDefault;
 @DisableCachingByDefault(because = "Not worth caching")
 public abstract class BootJar extends Jar implements BootArchive {
 
-	private static final String LAUNCHER = "org.springframework.boot.loader.JarLauncher";
+	private static final String LAUNCHER = "org.springframework.boot.loader.launch.JarLauncher";
 
 	private static final String CLASSES_DIRECTORY = "BOOT-INF/classes/";
 
@@ -141,12 +143,14 @@ public abstract class BootJar extends Jar implements BootArchive {
 
 	@Override
 	protected CopyAction createCopyAction() {
+		LoaderImplementation loaderImplementation = getLoaderImplementation().getOrElse(LoaderImplementation.DEFAULT);
 		if (!isLayeredDisabled()) {
 			LayerResolver layerResolver = new LayerResolver(this.resolvedDependencies, this.layered, this::isLibrary);
 			String layerToolsLocation = this.layered.getIncludeLayerTools().get() ? LIB_DIRECTORY : null;
-			return this.support.createCopyAction(this, this.resolvedDependencies, layerResolver, layerToolsLocation);
+			return this.support.createCopyAction(this, this.resolvedDependencies, loaderImplementation, true,
+					layerResolver, layerToolsLocation);
 		}
-		return this.support.createCopyAction(this, this.resolvedDependencies);
+		return this.support.createCopyAction(this, this.resolvedDependencies, loaderImplementation, true);
 	}
 
 	@Override

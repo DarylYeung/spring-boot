@@ -69,6 +69,8 @@ public class Image {
 
 	List<String> tags;
 
+	CacheInfo buildWorkspace;
+
 	CacheInfo buildCache;
 
 	CacheInfo launchCache;
@@ -76,6 +78,8 @@ public class Image {
 	String createdDate;
 
 	String applicationDirectory;
+
+	List<String> securityOptions;
 
 	/**
 	 * The name of the created image.
@@ -243,6 +247,9 @@ public class Image {
 		if (!CollectionUtils.isEmpty(this.tags)) {
 			request = request.withTags(this.tags.stream().map(ImageReference::of).toList());
 		}
+		if (this.buildWorkspace != null) {
+			request = request.withBuildWorkspace(this.buildWorkspace.asCache());
+		}
 		if (this.buildCache != null) {
 			request = request.withBuildCache(this.buildCache.asCache());
 		}
@@ -254,6 +261,9 @@ public class Image {
 		}
 		if (StringUtils.hasText(this.applicationDirectory)) {
 			request = request.withApplicationDirectory(this.applicationDirectory);
+		}
+		if (this.securityOptions != null) {
+			request = request.withSecurityOptions(this.securityOptions);
 		}
 		return request;
 	}

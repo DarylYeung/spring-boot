@@ -131,7 +131,7 @@ The following table summarizes the available parameters and their default values
 | `builder` +
 (`spring-boot.build-image.builder`)
 | Name of the Builder image to use.
-| `paketobuildpacks/builder:base`
+| `paketobuildpacks/builder-jammy-base:latest`
 
 | `runImage` +
 (`spring-boot.build-image.runImage`)
@@ -199,19 +199,23 @@ The value supplied will be passed unvalidated to Docker when creating the builde
 
 | `tags`
 | One or more additional tags to apply to the generated image.
-The values provided to the `tags` option should be full image references in the form of `[image name]:[tag]` or `[repository]/[image name]:[tag]`.
+The values provided to the `tags` option should be *full* image references.
+See <<build-image.customization.tags, the tags section>> for more details.
 |
 
-| `caches`
-| Cache volume names that should be used by the builder instead of generating random names.
-|
+| `buildWorkspace`
+| A temporary workspace that will be used by the builder and buildpacks to store files during image building.
+The value can be a named volume or a bind mount location.
+| A named volume in the Docker daemon, with a name derived from the image name.
 
 | `buildCache`
 | A cache containing layers created by buildpacks and used by the image building process.
+The value can be a named volume or a bind mount location.
 | A named volume in the Docker daemon, with a name derived from the image name.
 
 | `launchCache`
 | A cache containing layers created by buildpacks and used by the image launching process.
+The value can be a named volume or a bind mount location.
 | A named volume in the Docker daemon, with a name derived from the image name.
 
 | `createdDate` +
@@ -227,6 +231,10 @@ The value must be a string in the ISO 8601 instant format, or `now` to use the c
 Application contents will also be in this location in the generated image.
 | `/workspace`
 
+| `securityOptions`
+| https://docs.docker.com/engine/reference/run/#security-configuration[Security options] that will be applied to the builder container, provided as an array of string values
+| `["label=disable"]` on Linux and macOS, `[]` on Windows
+
 |===
 
 NOTE: The plugin detects the target Java compatibility of the project using the compiler's plugin configuration or the `maven.compiler.target` property.
@@ -234,6 +242,24 @@ When using the default Paketo builder and buildpacks, the plugin instructs the b
 You can override this behaviour as shown in the <<build-image.examples.builder-configuration,builder configuration>> examples.
 
 For more details, see also <<build-image.examples,examples>>.
+
+
+
+[[build-image.customization.tags]]
+=== Tags format
+
+The values provided to the `tags` option should be *full* image references.
+The accepted format is `[domainHost:port/][path/]name[:tag][@digest]`.
+
+If the domain is missing, it defaults to `docker.io`.
+If the path is missing, it defaults to `library`.
+If the tag is missing, it defaults to `latest`.
+
+Some examples:
+
+* `my-image` leads to the image reference `docker.io/library/my-image:latest`
+* `my-repository/my-image` leads to `docker.io/my-repository/my-image:latest`
+* `example.com/my-repository/my-image:1.0.0` will be used as is
 
 include::goals/build-image.adoc[leveloffset=+1]
 include::goals/build-image-no-fork.adoc[leveloffset=+1]
@@ -406,9 +432,10 @@ and reference the properties in the XML configuration:
 include::../maven/packaging-oci-image/docker-pom-authentication-command-line.xml[tags=docker]
 ----
 
-[[build-image.examples.caches]]
-=== Builder Cache Configuration
 
+
+[[build-image.examples.caches]]
+=== Builder Cache and Workspace Configuration
 The CNB builder caches layers that are used when building and launching an image.
 By default, these caches are stored as named volumes in the Docker daemon with names that are derived from the full name of the target image.
 If the image name changes frequently, for example when the project version is used as a tag in the image name, then the caches can be invalidated frequently.
@@ -420,12 +447,25 @@ The cache volumes can be configured to use alternative names to give more contro
 include::../maven/packaging-oci-image/caches-pom.xml[tags=caches]
 ----
 
+Builders and buildpacks need a location to store temporary files during image building.
+By default, this temporary build workspace is stored in a named volume.
+
+The caches and the build workspace can be configured to use bind mounts instead of named volumes, as shown in the following example:
+
+[source,xml,indent=0,subs="verbatim,attributes",tabsize=4]
+----
+include::../maven/packaging-oci-image/bind-caches-pom.xml[tags=caches]
+----
+
+
+
 [[build-image.examples.docker]]
 === Docker Configuration
 
+
+
 [[build-image.examples.docker.minikube]]
 ==== Docker Configuration for minikube
-
 The plugin can communicate with the https://minikube.sigs.k8s.io/docs/tasks/docker_daemon/[Docker daemon provided by minikube] instead of the default local connection.
 
 On Linux and macOS, environment variables can be set using the command `eval $(minikube docker-env)` after minikube has been started.
@@ -437,9 +477,10 @@ The plugin can also be configured to use the minikube daemon by providing connec
 include::../maven/packaging-oci-image/docker-minikube-pom.xml[tags=docker-minikube]
 ----
 
+
+
 [[build-image.examples.docker.podman]]
 ==== Docker Configuration for podman
-
 The plugin can communicate with a https://podman.io/[podman container engine].
 
 The plugin can be configured to use podman local connection by providing connection details similar to those shown in the following example:
@@ -449,11 +490,26 @@ The plugin can be configured to use podman local connection by providing connect
 include::../maven/packaging-oci-image/docker-podman-pom.xml[tags=docker-podman]
 ----
 
-TIP: With the `podman` CLI installed, the command `podman info --format='{{.Host.RemoteSocket.Path}}'` can be used to get the value for the `docker.host` configuration property shown in this example.
+TIP: With the `colima` CLI installed, the command `podman info --format='{{.Host.RemoteSocket.Path}}'` can be used to get the value for the `docker.host` configuration property shown in this example.
+
+
+
+[[build-image.examples.docker.colima]]
+==== Docker Configuration for Colima
+The plugin can communicate with the Docker daemon provided by https://github.com/abiosoft/colima[Colima].
+The `DOCKER_HOST` environment variable can be set by using the command `export DOCKER_HOST=$(docker context inspect colima -f '{{.Endpoints.docker.Host}}').`
+
+The plugin can also be configured to use Colima daemon by providing connection details similar to those shown in the following example:
+
+[source,xml,indent=0,subs="verbatim,attributes",tabsize=4]
+----
+include::../maven/packaging-oci-image/docker-colima-pom.xml[tags=docker-colima]
+----
+
+
 
 [[build-image.examples.docker.auth]]
 ==== Docker Configuration for Authentication
-
 If the builder or run image are stored in a private Docker registry that supports user authentication, authentication details can be provided using `docker.builderRegistry` parameters as shown in the following example:
 
 [source,xml,indent=0,subs="verbatim,attributes",tabsize=4]

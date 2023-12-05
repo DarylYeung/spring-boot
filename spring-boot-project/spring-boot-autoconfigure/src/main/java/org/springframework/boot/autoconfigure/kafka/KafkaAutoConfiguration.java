@@ -35,6 +35,7 @@ import org.springframework.boot.autoconfigure.kafka.KafkaProperties.Jaas;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties.Retry.Topic;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.context.properties.PropertyMapper;
+import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.core.ConsumerFactory;
@@ -64,6 +65,8 @@ import org.springframework.retry.backoff.SleepingBackOffPolicy;
  * @author Moritz Halbritter
  * @author Andy Wilkinson
  * @author Phillip Webb
+ * @author Andy Wilkinson
+ * @author Scott Frederick
  * @since 1.5.0
  */
 @AutoConfiguration
@@ -95,6 +98,7 @@ public class KafkaAutoConfiguration {
 		map.from(kafkaProducerListener).to(kafkaTemplate::setProducerListener);
 		map.from(this.properties.getTemplate().getDefaultTopic()).to(kafkaTemplate::setDefaultTopic);
 		map.from(this.properties.getTemplate().getTransactionIdPrefix()).to(kafkaTemplate::setTransactionIdPrefix);
+		map.from(this.properties.getTemplate().isObservationEnabled()).to(kafkaTemplate::setObservationEnabled);
 		return kafkaTemplate;
 	}
 
@@ -107,8 +111,8 @@ public class KafkaAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean(ConsumerFactory.class)
 	public DefaultKafkaConsumerFactory<?, ?> kafkaConsumerFactory(KafkaConnectionDetails connectionDetails,
-			ObjectProvider<DefaultKafkaConsumerFactoryCustomizer> customizers) {
-		Map<String, Object> properties = this.properties.buildConsumerProperties();
+			ObjectProvider<DefaultKafkaConsumerFactoryCustomizer> customizers, ObjectProvider<SslBundles> sslBundles) {
+		Map<String, Object> properties = this.properties.buildConsumerProperties(sslBundles.getIfAvailable());
 		applyKafkaConnectionDetailsForConsumer(properties, connectionDetails);
 		DefaultKafkaConsumerFactory<Object, Object> factory = new DefaultKafkaConsumerFactory<>(properties);
 		customizers.orderedStream().forEach((customizer) -> customizer.customize(factory));
@@ -118,8 +122,8 @@ public class KafkaAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean(ProducerFactory.class)
 	public DefaultKafkaProducerFactory<?, ?> kafkaProducerFactory(KafkaConnectionDetails connectionDetails,
-			ObjectProvider<DefaultKafkaProducerFactoryCustomizer> customizers) {
-		Map<String, Object> properties = this.properties.buildProducerProperties();
+			ObjectProvider<DefaultKafkaProducerFactoryCustomizer> customizers, ObjectProvider<SslBundles> sslBundles) {
+		Map<String, Object> properties = this.properties.buildProducerProperties(sslBundles.getIfAvailable());
 		applyKafkaConnectionDetailsForProducer(properties, connectionDetails);
 		DefaultKafkaProducerFactory<?, ?> factory = new DefaultKafkaProducerFactory<>(properties);
 		String transactionIdPrefix = this.properties.getProducer().getTransactionIdPrefix();
@@ -155,8 +159,8 @@ public class KafkaAutoConfiguration {
 
 	@Bean
 	@ConditionalOnMissingBean
-	public KafkaAdmin kafkaAdmin(KafkaConnectionDetails connectionDetails) {
-		Map<String, Object> properties = this.properties.buildAdminProperties();
+	public KafkaAdmin kafkaAdmin(KafkaConnectionDetails connectionDetails, ObjectProvider<SslBundles> sslBundles) {
+		Map<String, Object> properties = this.properties.buildAdminProperties(sslBundles.getIfAvailable());
 		applyKafkaConnectionDetailsForAdmin(properties, connectionDetails);
 		KafkaAdmin kafkaAdmin = new KafkaAdmin(properties);
 		KafkaProperties.Admin admin = this.properties.getAdmin();

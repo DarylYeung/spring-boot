@@ -34,7 +34,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatException;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -54,14 +54,16 @@ class ZipkinRestTemplateSenderTests extends ZipkinHttpSenderTests {
 	private MockRestServiceServer mockServer;
 
 	@Override
-	Sender createSut() {
+	Sender createSender() {
 		RestTemplate restTemplate = new RestTemplate();
 		this.mockServer = MockRestServiceServer.createServer(restTemplate);
 		return new ZipkinRestTemplateSender(ZIPKIN_URL, restTemplate);
 	}
 
 	@AfterEach
-	void tearDown() {
+	@Override
+	void afterEach() throws IOException {
+		super.afterEach();
 		this.mockServer.verify();
 	}
 
@@ -71,7 +73,7 @@ class ZipkinRestTemplateSenderTests extends ZipkinHttpSenderTests {
 			.andExpect(method(HttpMethod.POST))
 			.andExpect(content().string("[]"))
 			.andRespond(withStatus(HttpStatus.ACCEPTED));
-		assertThat(this.sut.check()).isEqualTo(CheckResult.OK);
+		assertThat(this.sender.check()).isEqualTo(CheckResult.OK);
 	}
 
 	@Test
@@ -79,7 +81,7 @@ class ZipkinRestTemplateSenderTests extends ZipkinHttpSenderTests {
 		this.mockServer.expect(requestTo(ZIPKIN_URL))
 			.andExpect(method(HttpMethod.POST))
 			.andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
-		CheckResult result = this.sut.check();
+		CheckResult result = this.sender.check();
 		assertThat(result.ok()).isFalse();
 		assertThat(result.error()).hasMessageContaining("500 Internal Server Error");
 	}
@@ -107,8 +109,8 @@ class ZipkinRestTemplateSenderTests extends ZipkinHttpSenderTests {
 			assertThat(callbackResult.error()).isNotNull().hasMessageContaining("500 Internal Server Error");
 		}
 		else {
-			assertThatThrownBy(() -> makeSyncRequest(Collections.emptyList()))
-				.hasMessageContaining("500 Internal Server Error");
+			assertThatException().isThrownBy(() -> makeSyncRequest(Collections.emptyList()))
+				.withMessageContaining("500 Internal Server Error");
 		}
 	}
 

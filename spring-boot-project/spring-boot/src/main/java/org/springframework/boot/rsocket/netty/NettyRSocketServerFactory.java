@@ -45,7 +45,7 @@ import org.springframework.boot.web.embedded.netty.SslServerCustomizer;
 import org.springframework.boot.web.server.Ssl;
 import org.springframework.boot.web.server.SslStoreProvider;
 import org.springframework.boot.web.server.WebServerSslBundle;
-import org.springframework.http.client.reactive.ReactorResourceFactory;
+import org.springframework.http.client.ReactorResourceFactory;
 import org.springframework.util.Assert;
 import org.springframework.util.unit.DataSize;
 
@@ -219,12 +219,15 @@ public class NettyRSocketServerFactory implements RSocketServerFactory, Configur
 	private static final class TcpSslServerCustomizer
 			extends org.springframework.boot.web.embedded.netty.SslServerCustomizer {
 
+		private final SslBundle sslBundle;
+
 		private TcpSslServerCustomizer(Ssl.ClientAuth clientAuth, SslBundle sslBundle) {
 			super(null, clientAuth, sslBundle);
+			this.sslBundle = sslBundle;
 		}
 
 		private TcpServer apply(TcpServer server) {
-			AbstractProtocolSslContextSpec<?> sslContextSpec = createSslContextSpec();
+			AbstractProtocolSslContextSpec<?> sslContextSpec = createSslContextSpec(this.sslBundle);
 			return server.secure((spec) -> spec.sslContext(sslContextSpec));
 		}
 

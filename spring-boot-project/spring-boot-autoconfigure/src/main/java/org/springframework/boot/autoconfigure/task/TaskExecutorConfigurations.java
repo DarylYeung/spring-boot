@@ -20,8 +20,14 @@ import java.util.concurrent.Executor;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnVirtualThreads;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnThreading;
+import org.springframework.boot.autoconfigure.thread.Threading;
+import org.springframework.boot.task.SimpleAsyncTaskExecutorBuilder;
+import org.springframework.boot.task.SimpleAsyncTaskExecutorCustomizer;
 import org.springframework.boot.task.TaskExecutorBuilder;
+import org.springframework.boot.task.TaskExecutorCustomizer;
+import org.springframework.boot.task.ThreadPoolTaskExecutorBuilder;
+import org.springframework.boot.task.ThreadPoolTaskExecutorCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -36,35 +42,145 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * {@link TaskExecutionAutoConfiguration} in a specific order.
  *
  * @author Andy Wilkinson
+ * @author Moritz Halbritter
  */
 class TaskExecutorConfigurations {
 
-	@ConditionalOnVirtualThreads
 	@Configuration(proxyBeanMethods = false)
 	@ConditionalOnMissingBean(Executor.class)
-	static class VirtualThreadTaskExecutorConfiguration {
+	@SuppressWarnings("removal")
+	static class TaskExecutorConfiguration {
 
 		@Bean(name = { TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME,
 				AsyncAnnotationBeanPostProcessor.DEFAULT_TASK_EXECUTOR_BEAN_NAME })
-		SimpleAsyncTaskExecutor applicationTaskExecutor(TaskExecutionProperties properties,
-				ObjectProvider<TaskDecorator> taskDecorator) {
-			SimpleAsyncTaskExecutor executor = new SimpleAsyncTaskExecutor(properties.getThreadNamePrefix());
-			executor.setVirtualThreads(true);
-			executor.setTaskDecorator(taskDecorator.getIfUnique());
-			return executor;
+		@ConditionalOnThreading(Threading.VIRTUAL)
+		SimpleAsyncTaskExecutor applicationTaskExecutorVirtualThreads(SimpleAsyncTaskExecutorBuilder builder) {
+			return builder.build();
+		}
+
+		@Lazy
+		@Bean(name = { TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME,
+				AsyncAnnotationBeanPostProcessor.DEFAULT_TASK_EXECUTOR_BEAN_NAME })
+		@ConditionalOnThreading(Threading.PLATFORM)
+		ThreadPoolTaskExecutor applicationTaskExecutor(TaskExecutorBuilder taskExecutorBuilder,
+				ObjectProvider<ThreadPoolTaskExecutorBuilder> threadPoolTaskExecutorBuilderProvider) {
+			ThreadPoolTaskExecutorBuilder threadPoolTaskExecutorBuilder = threadPoolTaskExecutorBuilderProvider
+				.getIfUnique();
+			if (threadPoolTaskExecutorBuilder != null) {
+				return threadPoolTaskExecutorBuilder.build();
+			}
+			return taskExecutorBuilder.build();
 		}
 
 	}
 
 	@Configuration(proxyBeanMethods = false)
-	@ConditionalOnMissingBean(Executor.class)
-	static class ThreadPoolTaskExecutorConfiguration {
+	@SuppressWarnings("removal")
+	static class TaskExecutorBuilderConfiguration {
 
-		@Lazy
-		@Bean(name = { TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME,
-				AsyncAnnotationBeanPostProcessor.DEFAULT_TASK_EXECUTOR_BEAN_NAME })
-		ThreadPoolTaskExecutor applicationTaskExecutor(TaskExecutorBuilder builder) {
-			return builder.build();
+		@Bean
+		@ConditionalOnMissingBean
+		@Deprecated(since = "3.2.0", forRemoval = true)
+		TaskExecutorBuilder taskExecutorBuilder(TaskExecutionProperties properties,
+				ObjectProvider<TaskExecutorCustomizer> taskExecutorCustomizers,
+				ObjectProvider<TaskDecorator> taskDecorator) {
+			TaskExecutionProperties.Pool pool = properties.getPool();
+			TaskExecutorBuilder builder = new TaskExecutorBuilder();
+			builder = builder.queueCapacity(pool.getQueueCapacity());
+			builder = builder.corePoolSize(pool.getCoreSize());
+			builder = builder.maxPoolSize(pool.getMaxSize());
+			builder = builder.allowCoreThreadTimeOut(pool.isAllowCoreThreadTimeout());
+			builder = builder.keepAlive(pool.getKeepAlive());
+			TaskExecutionProperties.Shutdown shutdown = properties.getShutdown();
+			builder = builder.awaitTermination(shutdown.isAwaitTermination());
+			builder = builder.awaitTerminationPeriod(shutdown.getAwaitTerminationPeriod());
+			builder = builder.threadNamePrefix(properties.getThreadNamePrefix());
+			builder = builder.customizers(taskExecutorCustomizers.orderedStream()::iterator);
+			builder = builder.taskDecorator(taskDecorator.getIfUnique());
+			return builder;
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	@SuppressWarnings("removal")
+	static class ThreadPoolTaskExecutorBuilderConfiguration {
+
+		@Bean
+		@ConditionalOnMissingBean({ TaskExecutorBuilder.class, ThreadPoolTaskExecutorBuilder.class })
+		ThreadPoolTaskExecutorBuilder threadPoolTaskExecutorBuilder(TaskExecutionProperties properties,
+				ObjectProvider<ThreadPoolTaskExecutorCustomizer> threadPoolTaskExecutorCustomizers,
+				ObjectProvider<TaskExecutorCustomizer> taskExecutorCustomizers,
+				ObjectProvider<TaskDecorator> taskDecorator) {
+			TaskExecutionProperties.Pool pool = properties.getPool();
+			ThreadPoolTaskExecutorBuilder builder = new ThreadPoolTaskExecutorBuilder();
+			builder = builder.queueCapacity(pool.getQueueCapacity());
+			builder = builder.corePoolSize(pool.getCoreSize());
+			builder = builder.maxPoolSize(pool.getMaxSize());
+			builder = builder.allowCoreThreadTimeOut(pool.isAllowCoreThreadTimeout());
+			builder = builder.keepAlive(pool.getKeepAlive());
+			TaskExecutionProperties.Shutdown shutdown = properties.getShutdown();
+			builder = builder.awaitTermination(shutdown.isAwaitTermination());
+			builder = builder.awaitTerminationPeriod(shutdown.getAwaitTerminationPeriod());
+			builder = builder.threadNamePrefix(properties.getThreadNamePrefix());
+			builder = builder.customizers(threadPoolTaskExecutorCustomizers.orderedStream()::iterator);
+			builder = builder.taskDecorator(taskDecorator.getIfUnique());
+			// Apply the deprecated TaskExecutorCustomizers, too
+			builder = builder.additionalCustomizers(taskExecutorCustomizers.orderedStream().map(this::adapt).toList());
+			return builder;
+		}
+
+		private ThreadPoolTaskExecutorCustomizer adapt(TaskExecutorCustomizer customizer) {
+			return customizer::customize;
+		}
+
+	}
+
+	@Configuration(proxyBeanMethods = false)
+	static class SimpleAsyncTaskExecutorBuilderConfiguration {
+
+		private final TaskExecutionProperties properties;
+
+		private final ObjectProvider<SimpleAsyncTaskExecutorCustomizer> taskExecutorCustomizers;
+
+		private final ObjectProvider<TaskDecorator> taskDecorator;
+
+		SimpleAsyncTaskExecutorBuilderConfiguration(TaskExecutionProperties properties,
+				ObjectProvider<SimpleAsyncTaskExecutorCustomizer> taskExecutorCustomizers,
+				ObjectProvider<TaskDecorator> taskDecorator) {
+			this.properties = properties;
+			this.taskExecutorCustomizers = taskExecutorCustomizers;
+			this.taskDecorator = taskDecorator;
+		}
+
+		@Bean
+		@ConditionalOnMissingBean
+		@ConditionalOnThreading(Threading.PLATFORM)
+		SimpleAsyncTaskExecutorBuilder simpleAsyncTaskExecutorBuilder() {
+			return builder();
+		}
+
+		@Bean(name = "simpleAsyncTaskExecutorBuilder")
+		@ConditionalOnMissingBean
+		@ConditionalOnThreading(Threading.VIRTUAL)
+		SimpleAsyncTaskExecutorBuilder simpleAsyncTaskExecutorBuilderVirtualThreads() {
+			SimpleAsyncTaskExecutorBuilder builder = builder();
+			builder = builder.virtualThreads(true);
+			return builder;
+		}
+
+		private SimpleAsyncTaskExecutorBuilder builder() {
+			SimpleAsyncTaskExecutorBuilder builder = new SimpleAsyncTaskExecutorBuilder();
+			builder = builder.threadNamePrefix(this.properties.getThreadNamePrefix());
+			builder = builder.customizers(this.taskExecutorCustomizers.orderedStream()::iterator);
+			builder = builder.taskDecorator(this.taskDecorator.getIfUnique());
+			TaskExecutionProperties.Simple simple = this.properties.getSimple();
+			builder = builder.concurrencyLimit(simple.getConcurrencyLimit());
+			TaskExecutionProperties.Shutdown shutdown = this.properties.getShutdown();
+			if (shutdown.isAwaitTermination()) {
+				builder = builder.taskTerminationTimeout(shutdown.getAwaitTerminationPeriod());
+			}
+			return builder;
 		}
 
 	}
