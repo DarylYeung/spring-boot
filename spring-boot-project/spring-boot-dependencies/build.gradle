@@ -377,7 +377,7 @@ bom {
 			]
 		}
 	}
-	library("Hibernate", "6.3.1.Final") {
+	library("Hibernate", "6.4.0.Final") {
 		group("org.hibernate.orm") {
 			modules = [
 				"hibernate-agroal",
@@ -995,7 +995,7 @@ bom {
 			]
 		}
 	}
-	library("Micrometer", "1.12.0") {
+	library("Micrometer", "1.12.1-SNAPSHOT") {
 		considerSnapshots()
 		group("io.micrometer") {
 			modules = [
@@ -1008,7 +1008,7 @@ bom {
 			]
 		}
 	}
-	library("Micrometer Tracing", "1.2.0") {
+	library("Micrometer Tracing", "1.2.1-SNAPSHOT") {
 		considerSnapshots()
 		calendarName = "Tracing"
 		group("io.micrometer") {
@@ -1323,7 +1323,7 @@ bom {
 			]
 		}
 	}
-	library("Reactor Bom", "2023.0.0") {
+	library("Reactor Bom", "2023.0.1-SNAPSHOT") {
 		considerSnapshots()
 		calendarName = "Reactor"
 		group("io.projectreactor") {
@@ -1499,7 +1499,7 @@ bom {
 			]
 		}
 	}
-	library("Spring Authorization Server", "1.2.0") {
+	library("Spring Authorization Server", "1.2.1-SNAPSHOT") {
 		considerSnapshots()
 		group("org.springframework.security") {
 			modules = [
@@ -1515,7 +1515,7 @@ bom {
 			]
 		}
 	}
-	library("Spring Data Bom", "2023.1.0") {
+	library("Spring Data Bom", "2023.1.1-SNAPSHOT") {
 		considerSnapshots()
 		calendarName = "Spring Data Release"
 		group("org.springframework.data") {
@@ -1550,7 +1550,7 @@ bom {
 			]
 		}
 	}
-	library("Spring Integration", "6.2.0") {
+	library("Spring Integration", "6.2.1-SNAPSHOT") {
 		considerSnapshots()
 		group("org.springframework.integration") {
 			imports = [
@@ -1567,7 +1567,7 @@ bom {
 			]
 		}
 	}
-	library("Spring LDAP", "3.2.0") {
+	library("Spring LDAP", "3.2.1-SNAPSHOT") {
 		considerSnapshots()
 		group("org.springframework.ldap") {
 			modules = [
@@ -1604,7 +1604,7 @@ bom {
 			]
 		}
 	}
-	library("Spring Security", "6.2.0") {
+	library("Spring Security", "6.2.1-SNAPSHOT") {
 		considerSnapshots()
 		group("org.springframework.security") {
 			imports = [
